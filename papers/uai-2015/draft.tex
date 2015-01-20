@@ -1,0 +1,143 @@
+\documentclass[]{article}
+\usepackage{proceed2e}
+
+% Set the typeface to Times Roman
+\usepackage{times}
+
+
+% For figures
+\usepackage{graphicx} % more modern
+%\usepackage{epsfig} % less modern
+%\usepackage{subcaption} 
+%usepackage[numers]{natbib}
+% For citations
+%\usepackage[numbers]{natbib}
+
+% For algorithms
+%\usepackage{algorithm}
+%\usepackage{algorithmic}
+
+% As of 2011, we use the hyperref package to produce hyperlinks in the
+% resulting PDF.  If this breaks your system, please commend out the
+% following usepackage line and replace \usepackage{icml2014} with
+% \usepackage[nohyperref]{icml2014} above.
+%\usepackage{hyperref}
+% Packages hyperref and algorithmic misbehave sometimes.  We can fix
+% this with the following command.
+%\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+% Employ the following version of the ``usepackage'' statement for
+% submitting the draft version of the paper for review.  This will set
+% the note in the first column to ``Under review.  Do not distribute.''
+\usepackage{bm}
+\usepackage{amsmath}
+%\usepackage{nips_style} 
+%\usepackage{sidecap}
+%\usepackage[export]{adjustbox}
+
+
+% Leave date blank
+\date{}
+
+\pagestyle{myheadings}
+%\usepackage{sidecap}
+%\usepackage[export]{adjustbox}
+
+%\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+\input{cdefs}
+
+
+\title{Likelihood-free Inference and Optimization \\ using Stochastic Gradient Approximations}
+
+\author{} % LEAVE BLANK FOR ORIGINAL SUBMISSION.
+          % UAI  reviewing is double-blind.
+          
+% \author{
+% Edward Meeds \\
+% Informatics Institute \\
+% University of Amsterdam \\
+% \texttt{tmeeds@gmail.com} \\
+% \and
+% \author{
+% Robert Leenders \\
+% Informatics Institute \\
+% University of Amsterdam \\
+% \texttt{robert.leenders@student.uva.nl} \\
+% \and
+% Max Welling \\
+% Informatics Institute\\
+% University of Amsterdam \\
+%  \texttt{welling.max@gmail.com}
+% }
+%\nipsfinalcopy
+\begin{document} 
+	\vskip -0.3in
+  
+\maketitle
+
+% 
+% 
+% \begin{abstract} 
+% \input{abstract}
+% \end{abstract} 
+\begin{abstract} 
+%\input{abstract}
+\end{abstract} 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{INTRODUCTION} \label{introduction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{GRADIENTS FROM FORWARD SIMULATIONS} \label{gradsforward}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Robbin's Monro: SGD}
+
+\subsection{Spall's method: SASP}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{LANGEVIN DYNAMICS} \label{ld}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{STOCHASTIC-GRADIENT LD} \label{sgld}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{SGLD-ABC} \label{sgld}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Statistical Tests for Gradients}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{EXPERIMENTS} \label{experiments}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Logistic Regression with Stochastic Gradients}
+
+\subsection{Likelihood-free Inference of Blowfly Dynamics}
+
+\subsection{Other Useful ABC problem}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{DISCUSSION} \label{discussion}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{CONCLUSION} \label{conclusion}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection*{References}
+\newpage
+{
+\bibliographystyle{abcsgld}
+}
+
+\end{document}

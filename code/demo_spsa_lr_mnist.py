@@ -56,24 +56,30 @@ if __name__ == "__main__":
   #LR_model.gradient_ascent(lr, decay, mom, init_w_std, max_steps)
   D = X_train.shape[1]
 
-  max_iters = 500000
+  C = np.cov( X_train.T )
+  f=0.1
+  #cc = f*np.sqrt(1.0/(np.diag( C )+f*f)) 
+  cc = f*np.sqrt((np.diag( C )+f)/f)
+  ccc= np.hstack( (cc,cc,cc,cc,cc,cc,cc,cc,cc,cc))
+  #ccc=0.01
+  max_iters = 5000
   q         = 1
-  c         = 0.2
+  c         = 1
   N         = len(T_train)
   batchsize = 10
   alpha     = 0.1
   gamma     = 0.9
   
-  #cs = [0.05,0.1,0.2,0.3]
-  cs = [0.01]
-  gammas = [0.99999]
+  #cs = [0.5,0.1,0.2,0.3]
+  cs = [ccc]
+  gammas = [0.9999]
   moms = [0.5]
-  batchsizes = [20]
-  qs = [10]
+  batchsizes = [50]
+  qs = [20]
   result = []
   batchreplaces = [1]
   for c in cs:
-    alpha = 3*c/(4*N)
+    alpha = 3*0.1/(4*N)
     for gamma in gammas:
       for mom in moms:
         for batchsize in batchsizes:
@@ -81,8 +87,10 @@ if __name__ == "__main__":
             for batchreplace in batchreplaces:
               np.random.seed(1)
               w = 0.0001*np.random.randn( D*K )
-              spall_params = {"ml_problem":LR_model, "max_iters":max_iters, "q":q,"c":c,"N":N, "batchsize":batchsize, "alpha":alpha, "gamma":gamma,"mom":mom,"batchreplace":batchreplace, "l1":100.0,"l2":0.0}
+              spall_params = {"ml_problem":LR_model, "max_iters":max_iters, "q":q,"c":c,"N":N, "batchsize":batchsize, "alpha":alpha, "gamma":gamma,"mom":mom,"batchreplace":batchreplace, "l1":0.0,"l2":0.0,"diag_add":0.01}
+              
               wout, errors = spall( w, spall_params )
+              #wout, errors = spall_with_hessian( w, spall_params )
       
               result.append({"c":c,"alpha":alpha,"gamma":gamma, "mom":mom, "batchsize":batchsize,"q":q,"errors":errors,"w":wout})
   

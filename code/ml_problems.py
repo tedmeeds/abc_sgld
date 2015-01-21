@@ -68,7 +68,7 @@ class MulticlassLogisticRegression(object):
     utility -= l1*np.abs(w).sum()
     utility -= l2*pow(w,2).sum()
     
-    return utility 
+    return -utility 
     
   def class_error( self, w, X, t ):
     W = w.reshape( (self.D,self.K))
@@ -109,13 +109,17 @@ class MulticlassLogisticRegression(object):
     else:
       return loglike_data
     
-  def gradient( self, W, Y = None ):
-    new_ids = np.random.permutation( self.N )[:self.batchsize]
-    #ids = self.ids.copy()
-    #self.ids[:self.batchsize/4] = new_ids[:self.batchsize/4]
+  def gradient( self, w, ids = None ):
+    W = w.reshape( (self.D,self.K))
+    
+    if ids is None:
+      new_ids = np.random.permutation( self.N )[:self.batchsize]
+    else:
+      new_ids = ids
+      
     self.ids = new_ids
     ids = self.ids
-    #if Y is None:
+    n = len(ids)
     Y = softmax( np.dot( self.X[ids,:], W ) )
     
     
@@ -126,4 +130,5 @@ class MulticlassLogisticRegression(object):
     for k in range(self.K):
       g_k = np.dot( DIF[:,k].T, self.X[ids,:] ).T
       G[:,k] = g_k
-    return self.batchsize*G/self.N
+    g = G.reshape( (self.D*self.K,))
+    return self.N*g/n

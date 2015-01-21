@@ -31,10 +31,11 @@
 % the note in the first column to ``Under review.  Do not distribute.''
 \usepackage{bm}
 \usepackage{amsmath}
+%\usepackage{array}
 %\usepackage{nips_style} 
 %\usepackage{sidecap}
 %\usepackage[export]{adjustbox}
-
+%\include{cdefs}
 
 % Leave date blank
 \date{}
@@ -85,13 +86,22 @@
 % \input{abstract}
 % \end{abstract} 
 \begin{abstract} 
-%\input{abstract}
+In this paper we apply recent techniques from Bayesian inference that use gradient information to sample efficiently from the true posterior distribution to the {\em likelihood-free} or {\em approximate Bayesian computation} (ABC) setting.  To do this for ABC we adopt a {\em gradient-free} stochastic approximation algorithm by Spall~\cite{spall1999}.  Together these algorithms provide both optimization and inference for likelihood-free models as the algorithm ABC-SGLD transitions from optimization to sampling.  We demonstrate ABC-SGLD on problems where the true gradient information is known and on challenging ABC simulators.
 \end{abstract} 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{INTRODUCTION} \label{introduction}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+\begin{itemize}
+  \item  Arguably the two most useful procedures in simulation-based science are optimization and Bayesian inference.  
+  \item  Optimization can take the form of simple grid-search to sophisticated techniques like factorial design \cite{factorialdesign}, Bayesian experiment design \cite{bayesexpdesign}, (mention others).
+  \item Recently, Bayesian optimization techniques have shown success in optimizing very expensive black-box simulators \cite{bosuccess}.
+  \item The main approach of Bayesian inference of simulator parameters is ABC.  ABC is largely based a few sampling algorithms: SMC and MCMC.  
+  \item Though gradients are not directly computable for simulators, they can be computed analytically by using finite differences (see \cite{kiefer1952}).  This quickly becomes infeasible for large $p$ problems.  There is however an alternative stochastic approximation algorithm by Spall \cite{spall1999} that requires only 2 simulation calls independent of $p$.  
+  \item By using this approximation, gradient-based algorithms can be adopted for simulators: for optimization, using analogous stochastic gradient descent algorithms and for Bayesian inference using Langevin dynamics \cite{langevin}.
+  \item Recently, the SGLD \cite{wellingsgld} algorithm has efficiently combined optimization with inference using ideas from SGD with Langevin dynamics.
+  \item This paper describes ABC-SGLD.
+\end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{GRADIENTS FROM FORWARD SIMULATIONS} \label{gradsforward}
@@ -99,7 +109,45 @@
 
 \subsection{Robbin's Monro: SGD}
 
-\subsection{Spall's method: SASP}
+
+\newcommand{\gradestimate}[2]{\hat{g}_{#1}\lp#2\rp}
+\newcommand{\gradestimaterepeat}[3]{\hat{g}^{#3}_{#1}\lp#2\rp}
+\newcommand{\feval}[2]{y_{#1}^{#2}}
+\newcommand{\cstep}[2]{c_{#1#2}}
+\newcommand{\cstepconst}[1]{c_{#1}}
+\newcommand{\dstep}[2]{\Delta_{#1#2}}
+\newcommand{\dstepconst}[1]{\Delta_{#1}}
+\newcommand{\loglik}[1]{L\lp#1\rp}
+
+\subsection{Spall's method: SPSA}
+In the gradient-free setting, Spall \cite{spall_spsa} provides a stochastic approximate to the true gradient using only 2 forward simulations (function evaluations).  This is in contrast to multivariate finite-difference stochastic approximation FDSA \cite{kiefer1952} requiring $2p$ evaluations.  
+
+The gradient estimate is
+\begin{equation}
+  \gradestimate{t}{\thetav_t} = \begin{bmatrix} 
+                                   \frac{\feval{t}{+} - \feval{t}{-}}{2 \cstep{t}{1} \dstep{t}{1}} \\
+                                   \vdots \\
+                                   \frac{\feval{t}{+} - \feval{t}{-}}{2 \cstep{t}{p} \dstep{t}{p}} \\
+                                \end{bmatrix}
+\end{equation}
+where $\cstep{t}{p}$ is a step-size that is usually constant for all dimensions $p$, but can be different (as shown in this case); $\dstep{t}{p} \in {-1, +1}$ is a {\em perturbation mask} (called symmetric Bernouilli variables by Spall), i.e. $\dstep{t}{p} \sim 2*\text{Bernouilli}(0.5) - 1$; and  $\feval{t}{\pm}$ are function evaluations:
+\begin{eqnarray}
+  \feval{t}{+} &= \loglik{\thetav + \cstepconst{t}\dstepconst{t}} \\
+  \feval{t}{-} &= \loglik{\thetav - \cstepconst{t}\dstepconst{t}}
+\end{eqnarray}
+A way of reducing the noise in the gradient is by averaging over $q$ draws of $\dstepconst{t}$:
+\begin{equation}
+  \gradestimate{t}{\thetav_t} = \frac{1}{q} \sum_{j=1}^q \gradestimaterepeat{t}{\thetav_t}{j}
+\end{equation}
+where for each $j$ new perturbation masks are drawn.  
+
+Another variance reduction technique called the method of {\em common random numbers} (CRN) \cite{kleinman1999} sets a common seed for the random number generator (RNG) for both calls to the simulator.  This technique can remove the effect of the simulator noise in the gradient estimate, leaving on the randomness of the perturbation masks as the source of noise. Consider using SPSA instead of SGD: the CRN technique is equivalent of using the same batch of data vectors to evaluate the log-likelihood which is a sensible approach.
+
+\subsubsection{Variations}
+
+\begin{itemize}
+\item Varying $c_q$: use a different per repeat.  Seems to converge faster.  What is the correct noise process?  Right now trying this: flip coin, if heads perturb $c *= 1+U(0,1)$, else perturb $c /= 1 + U(0,1)$. 
+\end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{LANGEVIN DYNAMICS} \label{ld}

@@ -68,7 +68,7 @@ def spsa_gradient_with_hessian( f, w, c, c_tilde, N, batchsize, q = 1, ids = Non
     
     delta_g = (g1plus - g1minus)/(2*c_adjust*mask)
     
-    h += delta_g #.reshape((p,1)) #0.5*( delta_g.reshape((p,1))+delta_g.reshape((1,p)) )
+    h += delta_g
     
     #pdb.set_trace()
     G[j] = (f_plus-f_minus)/(2*c_adjust*mask)
@@ -82,7 +82,7 @@ def spsa_gradient_with_hessian( f, w, c, c_tilde, N, batchsize, q = 1, ids = Non
   #pdb.set_trace()
   return g, h, ids
 
-def spsa_abc_gradient( f, w, c, q = 1, seed = None, mask = None ):
+def spsa_abc_gradient( f, w, c, q = 1, seed = None, mask = None, hessian=False, c_tilde=None ):
   # f: the objective function, e.g. loglikelihood
   # w: parameters at this time step, len p
   # c: step size, constant for all dimensions
@@ -92,7 +92,8 @@ def spsa_abc_gradient( f, w, c, q = 1, seed = None, mask = None ):
   p = len(w)
   
   g = np.zeros( p )
-      
+  if hessian:
+    h = np.zeros( (p,p))
   G = np.zeros( (q,p))
   for j in range(q):
     # TODO: uncomment for perturbed c
@@ -107,19 +108,44 @@ def spsa_abc_gradient( f, w, c, q = 1, seed = None, mask = None ):
     f_plus  = f( w + c_adjust*mask, seed = seed )
     f_minus = f( w - c_adjust*mask, seed = seed )
   
+    g += (f_plus-f_minus)/(2*c_adjust*mask)
+    #print g
+    G[j] = (f_plus-f_minus)/(2*c_adjust*mask)
+    
     if np.isinf( f_plus ) or np.isinf( f_minus ):
       pdb.set_trace()
+    
+    if hessian:
+      mask_tilde = 2*np.random.binomial(1,0.5,p)-1
       
-    g += (f_plus-f_minus)/(2*c_adjust*mask)
-    G[j] = (f_plus-f_minus)/(2*c_adjust*mask)
+      # ones-sided grads
+      f_plus_1  = f( w + c_adjust*mask + c_tilde*mask_tilde, seed = seed )
+      f_minus_1 = f( w - c_adjust*mask + c_tilde*mask_tilde, seed = seed )
+      
+      g1plus  = (f_plus-f_plus_1)/(c_tilde*mask_tilde)
+      g1minus = (f_minus-f_minus_1)/(c_tilde*mask_tilde)
+    
+      delta_g = (g1plus - g1minus)
+      #/(2*c_adjust*mask)
+    
+      h1 = delta_g.reshape( (1,p) ) / (c_adjust*mask).reshape( (p,1) )
+      h += 0.5*(h1+h1.T)
+      #pdb.set_trace()
+      
+    
   
   g/=q  
+  #print g
+  if hessian:
+    h/=q  
+  else:
+    h=None
   
   if seed is not None:
     new_seed = seed + 1
   else:
     new_seed = None
-  return g, new_seed
+  return g, h, new_seed
     
 def spsa_gradient( f, w, c, N, batchsize, q = 1, ids = None, batchreplace = 1.0, mask = None, l1 = 0, l2=0, g_var=None):
   # f: the objective function, e.g. loglikelihood
@@ -250,6 +276,14 @@ def spall_abc( w, params ):
   init_seed = params["init_seed"]
   verbose_rate = params["verbose_rate"]
   #assert alpha0 < c0, "must have alpha < c"
+  hessian=params["hessian"]
+  h_delta = params["h_delta"]
+  
+  p = len(w)
+  if hessian:
+    h_bar         = np.zeros( (p,p))
+    h_bar_bar     = np.zeros( (p,p) )
+    h_bar_bar_inv = np.zeros( (p,p) )
   
   c=c0
   alpha=alpha0
@@ -261,36 +295,68 @@ def spall_abc( w, params ):
   g_var = np.ones(len(w))
   seed = init_seed
   for t in xrange(max_iters):
-    g_hat, seed = spsa_abc_gradient( problem.train_cost, w, c, q=q, seed=seed )
+    c_tilde = 1.15*c
+    g_hat, h_hat, seed = spsa_abc_gradient( problem.train_cost, w, c, q=q, seed=seed, hessian= False, c_tilde=c_tilde )
+    # if t < 50:
+    #   g_hat, h_hat, seed = spsa_abc_gradient( problem.train_cost, w, c, q=q, seed=seed, hessian= False, c_tilde=c_tilde )
+    # else:
+    #   g_hat, h_hat, seed = spsa_abc_gradient( problem.train_cost, w, c, q=q, seed=seed, hessian= hessian, c_tilde=c_tilde )
+    
+    #g_hat += problem.grad_prior( w )
     
     if t==0:
       g_mom = g_hat.copy()
     else:
       g_mom = mom*g_mom + (1-mom)*g_hat
-    #
-    # if t==0:
-    #   g_var = pow( g_hat, 2 )
-    # else:
-    #   g_var = mom*g_var + (1-mom)*pow( g_hat, 2 )
     
-    #g_hat = g_mom
-    #adj_grad = g_hat / (0 + np.sqrt(g_var) )  
-    #w = w - alpha*g_hat #g_mom
-    w = w - alpha*g_mom
+    if t==0:
+      g_var = pow( g_hat, 2 )
+    else:
+      #g_var = mom*g_var + (1-mom)*pow( (g_hat), 2 )
+      g_var = g_var + pow( (g_hat), 2 )
+      
+    if hessian:
+      pass
+      # r = float(t)/float(t+1)
+      # if t-50 > 0:
+      #   r =0.25*mom
+      #
+      # else:
+      #   r=0
+      # if h_hat is not None:
+      #   h_bar         = r*h_bar + (1-r)*h_hat
+      #   h_bar_diag    = np.diag( np.diag(h_bar))
+      #   h_bar_bar     = pow(np.dot(h_bar,h_bar.T),0.5) +h_delta*np.eye(p)
+      #   #h_bar_bar     = h_bar + h_delta*np.eye(p)
+      #   #pdb.set_trace()
+      #   h_bar_bar_inv = h_delta*np.linalg.inv( h_bar_bar  )
+      #
+      # if t < 50:
+      #   #print "using gradient"
+      #   w = w - alpha*g_mom
+      # else:
+      #   #print "using hessian"
+      #   w = w - alpha*np.dot( h_bar_bar_inv, g_mom )
+      #pdb.set_trace()
+    else:  
+      #w = w - alpha*g_mom
+      #w = w - 1000*alpha*g_mom/(1e-3 + np.sqrt(g_var) )  
+      #w = w - g_hat/(1e-3 + np.sqrt(g_var) ) 
+      w = w - g_mom/(1e-3 + np.sqrt(g_var) )  
+      #w = w - 0.5*alpha*g_hat/(1e-3 + np.sqrt(g_var) )  + np.sqrt(alpha)*np.random.randn(p)
+      #pdb.set_trace()
     #w = w - alpha*adj_grad
     
     problem.model.current.response_groups[0].epsilon *= gamma
+    
     alpha *= gamma
     c     *= gamma
-    #alpha=c
+    
     train_error = problem.train_error( w )
     test_error = problem.test_error( w )
     errors.append( [train_error,test_error])
     if np.mod(t+1,verbose_rate)==0:
-      #train_error = problem.train_error( w )
-      #test_error = problem.test_error( w )
       print "%4d train %0.4f test %0.4f  alpha %g  "%(t+1, train_error, test_error,alpha), problem.model.current.theta
-      #errors.append( [train_error,test_error])
     
   return w, np.array(errors)
     

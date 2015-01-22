@@ -25,7 +25,8 @@ algo, model, state  = algo_factory.create_algo_and_state( algo_params )
 recorder     = recorder_factory.create_recorder( {} )
 
 class LikelihoodFree( object ):
-  def __init__( self, model, state, recorder ):
+  def __init__( self, problem, model, state, recorder ):
+    self.problem = problem
     self.model = model
     self.state = state
     self.recorder = recorder
@@ -46,7 +47,7 @@ class LikelihoodFree( object ):
   def train_cost( self, w, seed = None ):
     #theta = np.hstack( (w,self.tau))
     theta = w.copy()
-    theta[-1] = int(np.exp(w[-1]))
+    theta[-1] = np.ceil(np.exp(w[-1]))
     #print theta
     self.state.theta = theta#.reshape( (1,len(theta)))
     self.state.loglikelihood_is_computed = False
@@ -55,9 +56,14 @@ class LikelihoodFree( object ):
     if seed is not None:
       np.random.seed(seed)
     #pdb.set_trace()
-    log_posterior = self.model.log_posterior()
-    
-    return -log_posterior 
+    #log_posterior = self.model.log_posterior()
+    loglikelihood = self.model.current.loglikelihood()
+    return -loglikelihood 
+  
+  def grad_prior( self, w ):
+    theta = w.copy()
+    theta[-1] = np.ceil(np.exp(w[-1]))
+    return -self.problem.theta_prior_logpdf_grad( theta )
     
   def train_error( self, w, seed = None ):
     # ignore w (assume already computed stats)
@@ -74,7 +80,7 @@ class LikelihoodFree( object ):
     
 if __name__ == "__main__":
   
-  abc_problem = LikelihoodFree( model, state, recorder )
+  abc_problem = LikelihoodFree( problem, model, state, recorder )
   
   max_iters = 5000
   q         = 1
@@ -83,18 +89,18 @@ if __name__ == "__main__":
   gamma     = 0.9
   
   #cs = [0.5,0.1,0.2,0.3]
-  cs = [np.array([0.5,0.1,0.1,0.5,0.01,0.1])]
+  cs = [0.1] #np.array([0.5,0.1,0.1,0.5,0.01,0.1])]
   gammas = [0.9999]
-  moms = [0.9]
+  moms = [0.1]
   qs = [5]
   result = []
   for c in cs:
-    #alpha = 0.000001 #*3*c/(4)
-    alpha  = 0.00002 #*3*c/(4)
+    alpha = 0.0001 #*3*c/(4)
+    #alpha  = 1.001 #0.00002 #*3*c/(4)
     for gamma in gammas:
       for mom in moms:
         for q in qs:
-          np.random.seed(10)
+          np.random.seed(1)
           theta_rand = problem.theta_prior_rand()
           w = theta_rand #[:5]
           w[-1] = np.log(w[-1])
@@ -103,11 +109,13 @@ if __name__ == "__main__":
                               "max_iters":max_iters, 
                               "q":q,
                               "c":c,
-                              "alpha":problem_params["epsilon"]*alpha, 
+                              "alpha":problem_params["epsilon"]*alpha*1, 
                               "gamma":gamma,
                               "mom":mom,
                               "init_seed":20,
-                              "verbose_rate":50
+                              "verbose_rate":50,
+                              "hessian":False,
+                              "h_delta":0.1
                               }
           
           wout, errors = spall_abc( w, spall_abc_params )

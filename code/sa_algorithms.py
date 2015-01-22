@@ -302,7 +302,7 @@ def spall_abc( w, params ):
     # else:
     #   g_hat, h_hat, seed = spsa_abc_gradient( problem.train_cost, w, c, q=q, seed=seed, hessian= hessian, c_tilde=c_tilde )
     
-    #g_hat += problem.grad_prior( w )
+    g_hat += problem.grad_prior( w )
     
     if t==0:
       g_mom = g_hat.copy()

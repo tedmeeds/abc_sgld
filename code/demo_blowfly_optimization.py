@@ -63,7 +63,7 @@ class LikelihoodFree( object ):
   def grad_prior( self, w ):
     theta = w.copy()
     theta[-1] = np.ceil(np.exp(w[-1]))
-    return -self.problem.theta_prior_logpdf_grad( theta )
+    return self.problem.theta_prior_logpdf_grad( theta )
     
   def train_error( self, w, seed = None ):
     # ignore w (assume already computed stats)

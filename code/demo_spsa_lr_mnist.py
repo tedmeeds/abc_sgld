@@ -17,6 +17,11 @@ if __name__ == "__main__":
   num_training, dimension = X_train.shape
   num_classes = T_train.shape[1]
 
+  N=num_training; D = dimension; K = num_classes
+  
+  l1 = 0
+  l2 = 0
+  
   LR_model = MulticlassLogisticRegression( T_train, X_train, T_test, X_test, l1,  l2 )
   covariance = np.cov( X_train.T )
   f=0.1
@@ -25,7 +30,7 @@ if __name__ == "__main__":
   ccc= np.hstack(tuple([cc]*num_classes))
   #ccc=0.01
 
-  max_iters = 10000
+  max_iters = 50000
   q         = 1
   c         = 1
   N         = len(T_train)
@@ -40,7 +45,7 @@ if __name__ == "__main__":
   gammas = [0.9999]
   moms = [0.0]
   batchsizes = [100]
-  qs = [10]
+  qs = [100]
   result = []
   batchreplaces = [1]
   for c in cs:
@@ -48,7 +53,7 @@ if __name__ == "__main__":
     #alpha = 0.01/N
     
     # for others
-    alpha = 0.01 #e-1 #*3*c/(4)
+    alpha = 0.001 #e-1 #*3*c/(4)
     
     for gamma in gammas:
       for mom in moms:

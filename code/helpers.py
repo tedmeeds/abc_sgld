@@ -43,7 +43,7 @@ def onehot( t, K ):
 
 
 def load_mnist():
-  file = gzip.open('../data/mnist.pkl.gz', 'rb')
+  file = gzip.open('./data/mnist.pkl.gz', 'rb')
   (X_train, t_train), (X_valid, t_valid), (X_test, t_test) = cPickle.load(file)
   num_classes = 10
 

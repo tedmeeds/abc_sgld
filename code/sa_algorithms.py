@@ -20,67 +20,67 @@ def sgradient( g, w, N, batchsize, q = 1, ids = None, l1 = 0, l2=0):
   
   return grads, ids
 
-def spsa_gradient_with_hessian( f, w, c, c_tilde, N, batchsize, q = 1, ids = None, batchreplace = 1.0, mask = None, l1 = 0, l2=0, g_var=None):
-  # f: the objective function, e.g. loglikelihood
-  # w: parameters at this time step, len p
-  # c: step size, constant for all dimensions
-  # N: total nbr data vectors
-  # batchsize: nbr of function evals to use in f
-  # q: nbr of repeats for the gradient
-  # batchreplace: percent of ids to replace
-  
-  c_adjust = c*np.ones(len(w))
-  
-  #pdb.set_trace()
-  p = len(w)
-  
-  g = np.zeros( p )
-  h = np.zeros( p )
-  
-  if ids is None:
-    ids = np.random.permutation( N )[:batchsize]
-      
-  G = np.zeros( (q,p))
-  for j in range(q):
-    # TODO: could put different batch ids here
-    # ids=new_ids
-    
-    # TODO: uncomment for perturbed c
-    # if np.random.randn()<0:
-    #   c_adjust *= 1 + np.random.rand()
-    # else:
-    #   c_adjust /= 1 + np.random.rand()
-        
-    mask = 2*np.random.binomial(1,0.5,p)-1
-    mask_tilde = 2*np.random.binomial(1,0.5,p)-1
-  
-    f_plus  = f( w + c_adjust*mask, ids = ids, l1=l1, l2=l2 )
-    f_minus = f( w - c_adjust*mask, ids = ids, l1=l1, l2=l2 )
-    
-    f_plus_1  = f( w + c_adjust*mask + c_tilde*mask_tilde, ids = ids, l1=l1, l2=l2 )
-    f_minus_1 = f( w - c_adjust*mask + c_tilde*mask_tilde, ids = ids, l1=l1, l2=l2 )
-  
-    g += (f_plus-f_minus)/(2*c_adjust*mask)
-    
-    # ones-sided grads
-    g1plus  = (f_plus-f_plus_1)/(c_tilde*mask_tilde)
-    g1minus = (f_minus-f_minus_1)/(c_tilde*mask_tilde)
-    
-    delta_g = (g1plus - g1minus)/(2*c_adjust*mask)
-    
-    h += delta_g
-    
-    #pdb.set_trace()
-    G[j] = (f_plus-f_minus)/(2*c_adjust*mask)
-  
-  g /= q  
-  h /= q
-  
-  #V = pow( G - g, 2).mean(0)   
-  
-  #g/=V
-  #pdb.set_trace()
-  return g, h, ids
+# def spsa_gradient_with_hessian( f, w, c, c_tilde, N, batchsize, q = 1, ids = None, batchreplace = 1.0, mask = None, l1 = 0, l2=0, g_var=None):
+#   # f: the objective function, e.g. loglikelihood
+#   # w: parameters at this time step, len p
+#   # c: step size, constant for all dimensions
+#   # N: total nbr data vectors
+#   # batchsize: nbr of function evals to use in f
+#   # q: nbr of repeats for the gradient
+#   # batchreplace: percent of ids to replace
+#
+#   c_adjust = c*np.ones(len(w))
+#
+#   #pdb.set_trace()
+#   p = len(w)
+#
+#   g = np.zeros( p )
+#   h = np.zeros( p )
+#
+#   if ids is None:
+#     ids = np.random.permutation( N )[:batchsize]
+#
+#   G = np.zeros( (q,p))
+#   for j in range(q):
+#     # TODO: could put different batch ids here
+#     # ids=new_ids
+#
+#     # TODO: uncomment for perturbed c
+#     # if np.random.randn()<0:
+#     #   c_adjust *= 1 + np.random.rand()
+#     # else:
+#     #   c_adjust /= 1 + np.random.rand()
+#
+#     mask = 2*np.random.binomial(1,0.5,p)-1
+#     mask_tilde = 2*np.random.binomial(1,0.5,p)-1
+#
+#     f_plus  = f( w + c_adjust*mask, ids = ids, l1=l1, l2=l2 )
+#     f_minus = f( w - c_adjust*mask, ids = ids, l1=l1, l2=l2 )
+#
+#     f_plus_1  = f( w + c_adjust*mask + c_tilde*mask_tilde, ids = ids, l1=l1, l2=l2 )
+#     f_minus_1 = f( w - c_adjust*mask + c_tilde*mask_tilde, ids = ids, l1=l1, l2=l2 )
+#
+#     g += (f_plus-f_minus)/(2*c_adjust*mask)
+#
+#     # ones-sided grads
+#     g1plus  = (f_plus-f_plus_1)/(c_tilde*mask_tilde)
+#     g1minus = (f_minus-f_minus_1)/(c_tilde*mask_tilde)
+#
+#     delta_g = (g1plus - g1minus)/(2*c_adjust*mask)
+#
+#     h += delta_g
+#
+#     #pdb.set_trace()
+#     G[j] = (f_plus-f_minus)/(2*c_adjust*mask)
+#
+#   g /= q
+#   h /= q
+#
+#   #V = pow( G - g, 2).mean(0)
+#
+#   #g/=V
+#   #pdb.set_trace()
+#   return g, h, ids
 
 def spsa_abc_gradient( f, w, c, q = 1, seed = None, mask = None, hessian=False, c_tilde=None ):
   # f: the objective function, e.g. loglikelihood
@@ -135,6 +135,16 @@ def spsa_abc_gradient( f, w, c, q = 1, seed = None, mask = None, hessian=False, 
     
   
   g/=q  
+  
+  if q > 1:
+    Vw = np.sum( (G - g)**2, 1 )/(q-1)
+    nVw = np.sum(Vw)/q
+    ng  = np.dot(g.T,g)
+    #print "norm 1 Vw/q        = ", nVw
+    #print "   norm g          = ", ng
+    #print "   ratio (theta^2) = ", nVw / ng
+    #print "   theta           = ", np.sqrt( nVw / ng )
+    
   #print g
   if hessian:
     h/=q  
@@ -147,7 +157,7 @@ def spsa_abc_gradient( f, w, c, q = 1, seed = None, mask = None, hessian=False, 
     new_seed = None
   return g, h, new_seed
     
-def spsa_gradient( f, w, c, N, batchsize, q = 1, ids = None, batchreplace = 1.0, mask = None, l1 = 0, l2=0, g_var=None):
+def spsa_gradient( f, w, c, N, batchsize, q = 1, ids = None):
   # f: the objective function, e.g. loglikelihood
   # w: parameters at this time step, len p
   # c: step size, constant for all dimensions
@@ -189,8 +199,8 @@ def spsa_gradient( f, w, c, N, batchsize, q = 1, ids = None, batchreplace = 1.0,
     mask = 2*np.random.binomial(1,0.5,p)-1
   
     
-    f_plus  = f( w + c_adjust*mask, ids = ids, l1=l1, l2=l2 )
-    f_minus = f( w - c_adjust*mask, ids = ids, l1=l1, l2=l2 )
+    f_plus  = f( w + c_adjust*mask, ids = ids )
+    f_minus = f( w - c_adjust*mask, ids = ids )
   
     g += (f_plus-f_minus)/(2*c_adjust*mask)
     G[j] = (f_plus-f_minus)/(2*c_adjust*mask)
@@ -201,7 +211,7 @@ def spsa_gradient( f, w, c, N, batchsize, q = 1, ids = None, batchreplace = 1.0,
   
   #g/=V
   #pdb.set_trace()
-  return g, ids
+  return g, None,ids
   
   # GM = (1-mom)*GM + mom*G
   #
@@ -219,12 +229,20 @@ def spall( w, params ):
   N         = params["N"]
   batchsize = params["batchsize"]
   alpha0     = params["alpha"]
-  gamma     = params["gamma"]
-  mom       = params["mom"]
-  batchreplace = params["batchreplace"]
-  l1       = params["l1"]
-  l2       = params["l2"]
-  verbose_rate = 100
+
+  gamma_alpha     = params["gamma_alpha"]
+  gamma_c     = params["gamma_c"]
+  gamma_eps     = params["gamma_eps"]
+  mom_beta1       = params["mom_beta1"]
+  mom_beta2       = params["mom_beta2"]
+  update_method   = params["update_method"]
+  
+  mom_beta1       = params["mom_beta1"]
+  mom_beta2       = params["mom_beta2"]
+  
+  batchreplace    = params["batchreplace"]
+  verbose_rate    = 100
+  update_method   = params["update_method"]
   #assert alpha0 < c0, "must have alpha < c"
   
   c=c0
@@ -233,28 +251,44 @@ def spall( w, params ):
   test_error = problem.test_error( w )
   ids = None
   errors = [[train_error,test_error]]
-  g_var = np.ones(len(w))
+  
+  g_squared = np.ones(len(w))
+  
   for t in xrange(max_iters):
-    g_hat, ids = spsa_gradient( problem.train_cost, w, c, N, batchsize, q=q, ids=None, batchreplace=batchreplace, l1=l1,l2=l2, g_var=g_var )
+    g_hat, h_hat,ids = spsa_gradient( problem.train_cost, w, c, N, batchsize, q=q, ids=None )
+    
+    g_hat += problem.grad_prior( w )
     
     if t==0:
       g_mom = g_hat.copy()
     else:
-      g_mom = mom*g_mom + (1-mom)*g_hat
+      g_mom = mom_beta1*g_mom + (1-mom_beta1)*g_hat
       
     if t==0:
-      g_var = pow( g_hat, 2 )
+      g_squared = pow( g_hat, 2 )
     else:
-      g_var = mom*g_var + (1-mom)*pow( g_hat, 2 )
+      #g_var = mom*g_var + (1-mom)*pow( g_hat, 2 )
+      if update_method == "adagrad":
+        g_squared = g_squared + g_hat**2
+      elif update_method == "rmsprop" or update_method == "adam":
+        g_squared = mom_beta2*g_squared + (1-mom_beta2)*g_hat**2
     
-    #g_hat = g_mom
-    #adj_grad = g_hat / (0 + np.sqrt(g_var) )  
-    #w = w - alpha*g_hat #g_mom
-    w = w - alpha*g_mom
-    #w = w - alpha*adj_grad
+    #print "before ",w
+    #print "    g_mom: ", g_mom
+    #print "    g_sqr: ",g_squared
+    if update_method == "grad":
+      w = w - alpha*g_mom
+      
+    elif update_method == "adagrad" or update_method == "rmsprop":
+      w = w - alpha*g_mom / (1e-3 + np.sqrt(g_squared) ) 
+      
+    elif update_method == "adam":
+      gamma_adam = np.sqrt( 1.0-(1-mom_beta2)**(t+1)) / ( 1.0-(1-mom_beta1)**(t+1))
+      #pdb.set_trace()
+      w = w - alpha*g_mom*gamma_adam / (1e-3 + np.sqrt(g_squared) )     
+    alpha *= gamma_alpha
+    c     *= gamma_c
     
-    alpha *= gamma
-    c     *= gamma
     #alpha=c
     if np.mod(t+1,verbose_rate)==0:
       train_error = problem.train_error( w )
@@ -271,19 +305,25 @@ def spall_abc( w, params ):
   q         = params["q"] # the nbr of repeats for spsa
   c0         = params["c"]
   alpha0     = params["alpha"]
-  gamma     = params["gamma"]
-  mom       = params["mom"]
+  #gamma     = params["gamma"]
+  gamma_alpha     = params["gamma_alpha"]
+  gamma_c     = params["gamma_c"]
+  gamma_eps     = params["gamma_eps"]
+  mom_beta1       = params["mom_beta1"]
+  mom_beta2       = params["mom_beta2"]
+  update_method   = params["update_method"]
   init_seed = params["init_seed"]
   verbose_rate = params["verbose_rate"]
   #assert alpha0 < c0, "must have alpha < c"
-  hessian=params["hessian"]
-  h_delta = params["h_delta"]
-  
+  #hessian=params["hessian"]
+  #h_delta = params["h_delta"]
+  q_rate  =params["q_rate"]
+  q0=q
   p = len(w)
-  if hessian:
-    h_bar         = np.zeros( (p,p))
-    h_bar_bar     = np.zeros( (p,p) )
-    h_bar_bar_inv = np.zeros( (p,p) )
+  # if hessian:
+  #   h_bar         = np.zeros( (p,p))
+  #   h_bar_bar     = np.zeros( (p,p) )
+  #   h_bar_bar_inv = np.zeros( (p,p) )
   
   c=c0
   alpha=alpha0
@@ -292,71 +332,56 @@ def spall_abc( w, params ):
   test_error = problem.test_error( w )
   ids = None
   errors = [[train_error,test_error]]
-  g_var = np.ones(len(w))
+  g_squared = np.zeros(len(w))
   seed = init_seed
   for t in xrange(max_iters):
     c_tilde = 1.15*c
+    
     g_hat, h_hat, seed = spsa_abc_gradient( problem.train_cost, w, c, q=q, seed=seed, hessian= False, c_tilde=c_tilde )
-    # if t < 50:
-    #   g_hat, h_hat, seed = spsa_abc_gradient( problem.train_cost, w, c, q=q, seed=seed, hessian= False, c_tilde=c_tilde )
-    # else:
-    #   g_hat, h_hat, seed = spsa_abc_gradient( problem.train_cost, w, c, q=q, seed=seed, hessian= hessian, c_tilde=c_tilde )
+    
+    q = int(q0*pow( q_rate, t ) )
     
     g_hat += problem.grad_prior( w )
     
     if t==0:
       g_mom = g_hat.copy()
     else:
-      g_mom = mom*g_mom + (1-mom)*g_hat
-    
-    if t==0:
-      g_var = pow( g_hat, 2 )
-    else:
-      #g_var = mom*g_var + (1-mom)*pow( (g_hat), 2 )
-      g_var = g_var + pow( (g_hat), 2 )
+      g_mom = mom_beta1*g_mom + (1-mom_beta1)*g_hat
       
-    if hessian:
-      pass
-      # r = float(t)/float(t+1)
-      # if t-50 > 0:
-      #   r =0.25*mom
-      #
-      # else:
-      #   r=0
-      # if h_hat is not None:
-      #   h_bar         = r*h_bar + (1-r)*h_hat
-      #   h_bar_diag    = np.diag( np.diag(h_bar))
-      #   h_bar_bar     = pow(np.dot(h_bar,h_bar.T),0.5) +h_delta*np.eye(p)
-      #   #h_bar_bar     = h_bar + h_delta*np.eye(p)
-      #   #pdb.set_trace()
-      #   h_bar_bar_inv = h_delta*np.linalg.inv( h_bar_bar  )
-      #
-      # if t < 50:
-      #   #print "using gradient"
-      #   w = w - alpha*g_mom
-      # else:
-      #   #print "using hessian"
-      #   w = w - alpha*np.dot( h_bar_bar_inv, g_mom )
-      #pdb.set_trace()
-    else:  
-      #w = w - alpha*g_mom
-      #w = w - 1000*alpha*g_mom/(1e-3 + np.sqrt(g_var) )  
-      #w = w - g_hat/(1e-3 + np.sqrt(g_var) ) 
-      w = w - g_mom/(1e-3 + np.sqrt(g_var) )  
-      #w = w - 0.5*alpha*g_hat/(1e-3 + np.sqrt(g_var) )  + np.sqrt(alpha)*np.random.randn(p)
-      #pdb.set_trace()
-    #w = w - alpha*adj_grad
+    if t==0:
+      g_squared = pow( g_hat, 2 )
+    else:
+      #g_var = mom*g_var + (1-mom)*pow( g_hat, 2 )
+      if update_method == "adagrad":
+        g_squared = g_squared + g_hat**2
+      elif update_method == "rmsprop" or update_method == "adam":
+        g_squared = mom_beta2*g_squared + (1-mom_beta2)*g_hat**2
     
-    problem.model.current.response_groups[0].epsilon *= gamma
+    #print "before ",w
+    #print "    g_mom: ", g_mom
+    #print "    g_sqr: ",g_squared
+    if update_method == "grad":
+      w = w - alpha*g_mom
+      
+    elif update_method == "adagrad" or update_method == "rmsprop":
+      w = w - alpha*g_mom / (1e-3 + np.sqrt(g_squared) ) 
+      
+    elif update_method == "adam":
+      gamma_adam = np.sqrt( 1.0-(1-mom_beta2)**(t+1)) / ( 1.0-(1-mom_beta1)**(t+1))
+      #pdb.set_trace()
+      w = w - alpha*g_mom*gamma_adam / (1e-3 + np.sqrt(g_squared) ) 
     
-    alpha *= gamma
-    c     *= gamma
+    #print "after ",w
+    alpha *= gamma_alpha
+    c     *= gamma_c
+    
+    problem.model.current.response_groups[0].epsilon *= gamma_eps
     
     train_error = problem.train_error( w )
     test_error = problem.test_error( w )
     errors.append( [train_error,test_error])
     if np.mod(t+1,verbose_rate)==0:
-      print "%4d train %0.4f test %0.4f  alpha %g  "%(t+1, train_error, test_error,alpha), problem.model.current.theta
+      print "%4d train %0.4f test %0.4f  alpha %g  q = %d"%(t+1, train_error, test_error,alpha, q), problem.model.current.theta
     
   return w, np.array(errors)
     
@@ -391,7 +416,9 @@ def spall_with_hessian( w, params ):
   for t in xrange(max_iters):
     c_tilde = 0.5*c
     
-    g_hat, h_hat, ids = spsa_gradient_with_hessian( problem.train_cost, w, c, c_tilde, N, batchsize, q=q, ids=None, batchreplace=batchreplace, l1=l1,l2=l2, g_var=g_var )
+    g_hat, h_hat, ids = spsa_gradient_with_hessian( problem.train_cost, w, c, c_tilde, N, batchsize, q=q, ids=None, batchreplace=batchreplace, g_var=g_var )
+    
+    g_hat += problem.grad_prior( w )
     
     if t==0:
       H_bar = h_hat
@@ -455,6 +482,8 @@ def sgd( w, params ):
   g_var = np.ones(len(w))
   for t in xrange(max_iters):
     g_hat, ids = sgradient( problem.gradient, w, N, batchsize, ids=None )
+    
+    g_hat += problem.grad_prior( w )
     
     if bcompare:
       spsa_g_hat, ids = spsa_gradient( problem.train_cost, w, c, N, batchsize, q=q, ids=ids )

@@ -157,12 +157,52 @@ Another variance reduction technique called the method of {\em common random num
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{STOCHASTIC-GRADIENT LD} \label{sgld}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{eqnarray}
+  V_h & = & \text{Var}\lp \frac{N}{n} \sum_{i=1}^n \nabla \log p(\bx_i | \thetav) - \sum_{i=1}^N \nabla \log p(\bx_i | \thetav )\rp \\
+  h & = & \frac{N}{n} \sum_{i=1}^n s_i \\
+  s_i & = & \nabla \log p(\bx_i | \thetav) + \frac{1}{N} \nabla p(\thetav) \\
+  \text{Var}(h) & = & \frac{N^2}{n^2} \sum_{i=1}^n \text{Var}(s_i) \\
+                & = & \frac{N^2}{n^2} \sum_{i=1}^n \frac{1}{n} \lp \sum_{j=1} (s_i - \bar{s})^2 \rp \\
+                & = & \frac{N^2}{n^2} \sum_{i=1}^n V_s \\
+                & = & \frac{N^2}{n^2} n V_s \\
+                & = & \frac{N^2}{n} V_s \\
+  \text{Var}(\thetav) & = & \frac{\epsilon^2}{4}\text{Var}(h) + \epsilon \\
+         \frac{\epsilon^2}{4}\text{Var}(h) & << & \epsilon \\
+         \frac{\epsilon N^2}{4 n} V_s & << & 1       
+\end{eqnarray}
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{SGLD-ABC} \label{sgld}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\begin{eqnarray}
+  V_{\gradestimaterepeat{t}{\thetav_t}{j}} & = & \frac{1}{q-1} \sum_{j=1}^q (\gradestimaterepeat{t}{\thetav_t}{j} - \gradestimate{t}{\thetav_t})^2 \\
+  V_{\gradestimate{t}{\thetav_t}} & = & \frac{1}{q-1} V_{\gradestimaterepeat{t}{\thetav_t}{j}} \\
+  \frac{\epsilon^2}{4 }V_{\gradestimate{t}{\thetav_t}} & = & \frac{\epsilon^2}{4 q }V_{\gradestimaterepeat{t}{\thetav_t}{j}} \\
+                                                       & << & \epsilon \\
+                    \frac{\epsilon}{4 (q-1) }V_{\gradestimaterepeat{t}{\thetav_t}{j}}  & << & 1                                  
+\end{eqnarray}
+
+Check for $g(\thetav) + h(\thetav) + \eta$ that $h(\thetav) + \eta \approx \eta$
+
+Also $\theta_{t+1} = \theta_t + \frac{\epsilon}{2}\gradestimate{t}{\thetav_t} + \sqrt{\epsilon}\mathcal{N}(0,1)$
+
 \subsection{Statistical Tests for Gradients}
+
+From Byrd:
+\begin{eqnarray}
+\frac{||V_{\gradestimaterepeat{t}{\thetav_t}{j}} ||_1}{q} & \leq r^2 || \hat{g}_t ||_2^2 \\
+\hat{q} & = & \frac{||V_{\gradestimaterepeat{t}{\thetav_t}{j}} ||_1}{r^2 || \hat{g}_t ||_2^2}
+\end{eqnarray}
+
+TODO:
+\begin{itemize}
+  \item Check that $q$ gradients are normal.  Especially as $q$ increases.
+  \item Merge Byrd's test for $\hat{q}$ and condition on SGLD-ABC.
+  \item Variance check for increasing $q$ can also be used to stop optimization since the variance is less than the noise in the gradients.
+\end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{EXPERIMENTS} \label{experiments}

@@ -42,7 +42,7 @@ def classification_error( t, y ):
   return float(len(I))/N
 
 class MulticlassLogisticRegression(object):
-  def __init__( self, T_mat, X_mat, T_test, X_test ):
+  def __init__( self, T_mat, X_mat, T_test, X_test, l1=0, l2=0 ):
     self.X = X_mat
     self.T = T_mat
     self.Xtest = X_test
@@ -57,18 +57,26 @@ class MulticlassLogisticRegression(object):
     
     # assume X_mat N*D
     N,self.D = X_mat.shape
+    
+    self.l1 = l1
+    self.l2 = l2
   
     assert N == self.N, "should be same shape"
     
-  def train_cost( self, w, ids, l1=0,l2=0 ):
+  def train_cost( self, w, ids ):
     W = w.reshape( (self.D,self.K))
     
     utility = self.loglikelihood( W, ids = ids )
     
-    utility -= l1*np.abs(w).sum()
-    utility -= l2*pow(w,2).sum()
+    # utility -= l1*np.abs(w).sum()
+    # utility -= l2*pow(w,2).sum()
     
     return -utility 
+  
+  def grad_prior( self, w ):
+    g = self.l1*np.sign(w)
+    g = self.l2*w
+    return g
     
   def class_error( self, w, X, t ):
     W = w.reshape( (self.D,self.K))

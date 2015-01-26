@@ -5,8 +5,9 @@ from sa_algorithms import *
 import pylab as pp
 
 problem_params = default_params()
-problem_params["epsilon"] = 0.05 #10*np.array([1.0,1.0,0.5,0.5,0.5,0.1,0.01,0.5,2.0,1])
+problem_params["epsilon"] = 0.01 #10*np.array([1.0,1.0,0.5,0.5,0.5,0.1,0.01,0.5,2.0,1])
 problem_params["blowfly_filename"] = "./data/blowfly.txt"
+#problem_params["blowfly_filename"] = "./data/bf2.txt"
 problem = BlowflyProblem( problem_params, force_init = True )
 
 state_params = state_params_factory.scrape_params_from_problem( problem )
@@ -82,25 +83,30 @@ if __name__ == "__main__":
   
   abc_problem = LikelihoodFree( problem, model, state, recorder )
   
-  max_iters = 5000
+  max_iters = 2000
   q         = 1
   c         = 0.2
   alpha     = 0.1
-  gamma     = 0.9
-  
+  gamma     = 0.75
+  mom_beta1 = 0.75 # on gradient
+  mom_beta2 = 0.9 # on gradient_squared
   #cs = [0.5,0.1,0.2,0.3]
   cs = [0.1] #np.array([0.5,0.1,0.1,0.5,0.01,0.1])]
   gammas = [0.9999]
-  moms = [0.1]
+  moms = [0.0]
   qs = [5]
   result = []
   for c in cs:
-    alpha = 0.0001 #*3*c/(4)
+    # for "grad"
+    #alpha = 1e-3 #*3*c/(4)
+    
+    # for others
+    alpha = 1e-1 #*3*c/(4)
     #alpha  = 1.001 #0.00002 #*3*c/(4)
     for gamma in gammas:
       for mom in moms:
         for q in qs:
-          np.random.seed(1)
+          np.random.seed(5)
           theta_rand = problem.theta_prior_rand()
           w = theta_rand #[:5]
           w[-1] = np.log(w[-1])
@@ -109,13 +115,18 @@ if __name__ == "__main__":
                               "max_iters":max_iters, 
                               "q":q,
                               "c":c,
-                              "alpha":problem_params["epsilon"]*alpha*1, 
-                              "gamma":gamma,
-                              "mom":mom,
+                              "alpha":alpha, 
+                              "gamma_alpha":1,
+                              "gamma_c":0.9999,
+                              "gamma_eps":0.9999,
+                              "mom_beta1":mom_beta1,
+                              "mom_beta2":mom_beta2,
+                              "update_method":"adam",
                               "init_seed":20,
                               "verbose_rate":50,
                               "hessian":False,
-                              "h_delta":0.1
+                              "h_delta":0.1,
+                              "q_rate":1.00
                               }
           
           wout, errors = spall_abc( w, spall_abc_params )

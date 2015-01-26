@@ -27,7 +27,7 @@ if __name__ == "__main__":
   lr = 0.002
   decay = 0.99999
   init_w_std = 0.000001
-  mom = 0.0
+  mom = 0.5
   max_steps = 300000
   print "loading mnist..."
   (X_train,t_train),(X_valid,t_valid),(X_test,t_test) = load_mnist()
@@ -41,9 +41,12 @@ if __name__ == "__main__":
   X_valid -= m
   X_test  -= m
   
+  l1 = 0.0
+  l2 = 0.0
+  
   # print "constructing LR model..."
   # #LR_model = MulticlassLogisticRegression( T_valid, X_valid, T_test, X_test )
-  LR_model = MulticlassLogisticRegression( T_train, X_train, T_test, X_test )
+  LR_model = MulticlassLogisticRegression( T_train, X_train, T_test, X_test, l1,  l2 )
   # LR_model2 = MulticlassLogisticRegression( T_train, X_train, T_test, X_test )
   # LR_model3 = MulticlassLogisticRegression( T_train, X_train, T_test, X_test )
   # LR_model4 = MulticlassLogisticRegression( T_train, X_train, T_test, X_test )
@@ -62,32 +65,54 @@ if __name__ == "__main__":
   cc = f*np.sqrt((np.diag( C )+f)/f)
   ccc= np.hstack( (cc,cc,cc,cc,cc,cc,cc,cc,cc,cc))
   #ccc=0.01
-  max_iters = 5000
+  max_iters = 10000
   q         = 1
   c         = 1
   N         = len(T_train)
   batchsize = 10
   alpha     = 0.1
   gamma     = 0.9
+  mom_beta1 = 0.9 # on gradient
+  mom_beta2 = 0.9 # on gradient_squared
   
   #cs = [0.5,0.1,0.2,0.3]
   cs = [ccc]
   gammas = [0.9999]
-  moms = [0.5]
-  batchsizes = [50]
-  qs = [20]
+  moms = [0.0]
+  batchsizes = [100]
+  qs = [10]
   result = []
   batchreplaces = [1]
   for c in cs:
-    alpha = 3*0.1/(4*N)
+    # for "grad"
+    #alpha = 0.01/N
+    
+    # for others
+    alpha = 0.01 #e-1 #*3*c/(4)
+    
     for gamma in gammas:
       for mom in moms:
         for batchsize in batchsizes:
           for q in qs:
             for batchreplace in batchreplaces:
               np.random.seed(1)
-              w = 0.0001*np.random.randn( D*K )
-              spall_params = {"ml_problem":LR_model, "max_iters":max_iters, "q":q,"c":c,"N":N, "batchsize":batchsize, "alpha":alpha, "gamma":gamma,"mom":mom,"batchreplace":batchreplace, "l1":0.0,"l2":0.0,"diag_add":0.01}
+              w = 0.000001*np.random.randn( D*K )
+              spall_params = {  "ml_problem":LR_model, 
+                                "max_iters":max_iters, 
+                                "q":q,
+                                "c":c,
+                                "N":N, 
+                                "batchsize":batchsize, "q":q,
+                                "c":c,
+                                "alpha":alpha, 
+                                "gamma_alpha":0.9999,
+                                "gamma_c":0.9999,
+                                "gamma_eps":0.9999,
+                                "mom_beta1":mom_beta1,
+                                "mom_beta2":mom_beta2,
+                                "update_method":"adam",
+                                "batchreplace":batchreplace, 
+                                "diag_add":0.01}
               
               wout, errors = spall( w, spall_params )
               #wout, errors = spall_with_hessian( w, spall_params )
@@ -103,8 +128,8 @@ if __name__ == "__main__":
   vals = np.array(vals)
   iorder = np.argsort(vals)
   
-  for idx in iorder:
-    print "error = %0.4f   c= %0.4f   a = %0.4f   mom = %0.4f  g = %0.4f b = %d  q = %d"%( vals[idx], result[idx]["c"], result[idx]["alpha"],result[idx]["mom"], result[idx]["gamma"], result[idx]["batchsize"], result[idx]["q"]) 
+  # for idx in iorder:
+  #   print "error = %0.4f   c= %0.4f   a = %0.4f   mom = %0.4f  g = %0.4f b = %d  q = %d"%( vals[idx], result[idx]["c"], result[idx]["alpha"],result[idx]["mom"], result[idx]["gamma"], result[idx]["batchsize"], result[idx]["q"])
   
   # experiments:
   #  1) full gradient descent with gradients (MAP)

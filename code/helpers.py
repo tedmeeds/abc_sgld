@@ -2,6 +2,11 @@ import gzip, cPickle
 import numpy as np
 import pylab as pp
 
+
+def sigmoid(x):
+    return 1.0/(1+np.exp(-x))
+
+
 def logsumexp(x,dim=0):
   """Compute log(sum(exp(x))) in numerically stable way."""
   #xmax = x.max()

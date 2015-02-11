@@ -30,30 +30,30 @@ if __name__ == "__main__":
   ccc= np.hstack(tuple([cc]*num_classes))
   #ccc=0.01
 
-  max_iters = 50000
+  max_iters = 5000
   q         = 1
   c         = 1
   N         = len(T_train)
   batchsize = 10
   alpha     = 0.1
   gamma     = 0.9
-  mom_beta1 = 0.9 # on gradient
-  mom_beta2 = 0.9 # on gradient_squared
+  mom_beta1 = 0.0 # on gradient
+  mom_beta2 = 0.0 # on gradient_squared
   
   #cs = [0.5,0.1,0.2,0.3]
   cs = [ccc]
   gammas = [0.9999]
   moms = [0.0]
   batchsizes = [100]
-  qs = [100]
+  qs = [10]
   result = []
   batchreplaces = [1]
   for c in cs:
     # for "grad"
-    #alpha = 0.01/N
+    alpha = 0.01/N
     
     # for others
-    alpha = 0.001 #e-1 #*3*c/(4)
+    #alpha = 0.01 #e-1 #*3*c/(4)
     
     for gamma in gammas:
       for mom in moms:
@@ -75,11 +75,12 @@ if __name__ == "__main__":
                                 "gamma_eps":0.9999,
                                 "mom_beta1":mom_beta1,
                                 "mom_beta2":mom_beta2,
-                                "update_method":"adam",
+                                "update_method":"grad",
                                 "batchreplace":batchreplace, 
                                 "diag_add":0.01}
               
-              wout, errors = spall( w, spall_params )
+              #wout, errors = spall( w, spall_params )
+              wout, errors = spall_sgld( w, spall_params )
               #wout, errors = spall_with_hessian( w, spall_params )
       
               result.append({"c":c,"alpha":alpha,"gamma":gamma, "mom":mom, "batchsize":batchsize,"q":q,"errors":errors,"w":wout})

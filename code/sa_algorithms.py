@@ -82,6 +82,37 @@ def sgradient( g, w, N, batchsize, q = 1, ids = None, l1 = 0, l2=0):
 #   #pdb.set_trace()
 #   return g, h, ids
 
+def finite_difference_abc_gradient( f, w, c, seed = None ):
+  # f: the objective function, e.g. loglikelihood
+  # w: parameters at this time step, len p
+  # c: step size, constant for all dimensions
+  # q: nbr of repeats for the gradient
+
+  p = len(w)
+  g = np.zeros( p )
+  
+  for i in range(p):
+    
+    mask = np.zeros(p)
+    mask[i] = 1.0
+    
+    #pdb.set_trace()
+    f_plus  = f( w + c*mask, seed = seed )
+    f_minus = f( w - c*mask, seed = seed )
+
+    g[i] = (f_plus-f_minus)/(2*c)
+
+    if np.isinf( f_plus ) or np.isinf( f_minus ):
+      pdb.set_trace()
+
+  h = None
+  if seed is not None:
+    new_seed = seed + 1
+  else:
+    new_seed = None
+  return g, new_seed
+
+
 def spsa_abc_gradient( f, w, c, q = 1, seed = None, mask = None, hessian=False, c_tilde=None ):
   # f: the objective function, e.g. loglikelihood
   # w: parameters at this time step, len p
@@ -95,19 +126,24 @@ def spsa_abc_gradient( f, w, c, q = 1, seed = None, mask = None, hessian=False, 
   if hessian:
     h = np.zeros( (p,p))
   G = np.zeros( (q,p))
+  
+  masks = 2*np.random.binomial(1,0.5,(q,p))-1
+  
   for j in range(q):
     # TODO: uncomment for perturbed c
-    # if np.random.randn()<0:
-    #   c_adjust *= 1 + np.random.rand()
-    # else:
-    #   c_adjust /= 1 + np.random.rand()
+    #if np.random.randn()<0:
+    #  c_adjust *= 1 + 0.25*np.random.rand()
+    #else:
+    #  c_adjust /= 1 + 0.25*np.random.rand()
 
-    mask = 2*np.random.binomial(1,0.5,p)-1
+    mask = masks[j]
 
     #pdb.set_trace()
     f_plus  = f( w + c_adjust*mask, seed = seed )
     f_minus = f( w - c_adjust*mask, seed = seed )
 
+    #seed += 1
+    #print f_plus, f_minus, seed
     g += (f_plus-f_minus)/(2*c_adjust*mask)
     #print g
     G[j] = (f_plus-f_minus)/(2*c_adjust*mask)
@@ -115,33 +151,41 @@ def spsa_abc_gradient( f, w, c, q = 1, seed = None, mask = None, hessian=False, 
     if np.isinf( f_plus ) or np.isinf( f_minus ):
       pdb.set_trace()
 
-    if hessian:
-      mask_tilde = 2*np.random.binomial(1,0.5,p)-1
 
-      # ones-sided grads
-      f_plus_1  = f( w + c_adjust*mask + c_tilde*mask_tilde, seed = seed )
-      f_minus_1 = f( w - c_adjust*mask + c_tilde*mask_tilde, seed = seed )
-
-      g1plus  = (f_plus-f_plus_1)/(c_tilde*mask_tilde)
-      g1minus = (f_minus-f_minus_1)/(c_tilde*mask_tilde)
-
-      delta_g = (g1plus - g1minus)
-      #/(2*c_adjust*mask)
-
-      h1 = delta_g.reshape( (1,p) ) / (c_adjust*mask).reshape( (p,1) )
-      h += 0.5*(h1+h1.T)
-      #pdb.set_trace()
+    # if hessian:
+    #   mask_tilde = 2*np.random.binomial(1,0.5,p)-1
+    #
+    #   # ones-sided grads
+    #   f_plus_1  = f( w + c_adjust*mask + c_tilde*mask_tilde, seed = seed )
+    #   f_minus_1 = f( w - c_adjust*mask + c_tilde*mask_tilde, seed = seed )
+    #
+    #   g1plus  = (f_plus-f_plus_1)/(c_tilde*mask_tilde)
+    #   g1minus = (f_minus-f_minus_1)/(c_tilde*mask_tilde)
+    #
+    #   delta_g = (g1plus - g1minus)
+    #   #/(2*c_adjust*mask)
+    #
+    #   h1 = delta_g.reshape( (1,p) ) / (c_adjust*mask).reshape( (p,1) )
+    #   h += 0.5*(h1+h1.T)
+    #   #pdb.set_trace()
+      
 
   g/=q  
   
   if q > 1:
-    Vw = np.sum( (G - g)**2, 1 )/(q-1)
+    Vw = np.sum( (G - g)**2, 0 )/(q-1)
     nVw = np.sum(Vw)/q
     ng  = np.dot(g.T,g)
-    #print "norm 1 Vw/q        = ", nVw
-    #print "   norm g          = ", ng
-    #print "   ratio (theta^2) = ", nVw / ng
-    #print "   theta           = ", np.sqrt( nVw / ng )
+  #pdb.set_trace()
+
+    
+    #pdb.set_trace()
+    # print "norm 1 Vw/q        = ", nVw
+    # print "   norm g          = ", ng
+    # print "   ratio (theta^2) = ", nVw / ng
+    # print "   theta           = ", np.sqrt( nVw / ng )
+    # sgld_eps = nVw/4.0
+    # print "   sgld            = ", sgld_eps
     
   #print g
   if hessian:
@@ -153,7 +197,7 @@ def spsa_abc_gradient( f, w, c, q = 1, seed = None, mask = None, hessian=False, 
     new_seed = seed + 1
   else:
     new_seed = None
-  return g, h, new_seed
+  return g, h, new_seed, Vw
     
 def spsa_gradient( f, w, c, N, batchsize, q = 1, ids = None):
   # f: the objective function, e.g. loglikelihood
@@ -271,6 +315,8 @@ def spall( w, params ):
       gamma_adam = np.sqrt( 1.0-(1-mom_beta2)**(t+1)) / ( 1.0-(1-mom_beta1)**(t+1))
       #pdb.set_trace()
       w = w - alpha*g_mom*gamma_adam / (1e-3 + np.sqrt(g_squared) )     
+    
+    w = problem.fix_w( w )
     alpha *= gamma_alpha
     c     *= gamma_c
 
@@ -282,6 +328,88 @@ def spall( w, params ):
 
   return w, np.array(errors)
 
+def spall_sgld( w, params ):
+  problem   = params["ml_problem"]
+  max_iters = params["max_iters"]
+  q         = params["q"] # the nbr of repeats for spsa
+  c0         = params["c"]
+  N         = params["N"]
+  batchsize = params["batchsize"]
+  alpha0     = params["alpha"]
+
+  gamma_alpha     = params["gamma_alpha"]
+  gamma_c     = params["gamma_c"]
+  gamma_eps     = params["gamma_eps"]
+  mom_beta1       = params["mom_beta1"]
+  mom_beta2       = params["mom_beta2"]
+  update_method   = params["update_method"]
+  
+  mom_beta1       = params["mom_beta1"]
+  mom_beta2       = params["mom_beta2"]
+  
+  batchreplace    = params["batchreplace"]
+  verbose_rate    = 100
+  update_method   = params["update_method"]
+  #assert alpha0 < c0, "must have alpha < c"
+
+  c=c0
+  alpha=alpha0
+  train_error = problem.train_error( w )
+  test_error = problem.test_error( w )
+  ids = None
+  errors = [[train_error,test_error]]
+  
+  g_squared = np.ones(len(w))
+  
+  for t in xrange(max_iters):
+    g_hat, h_hat,ids = spsa_gradient( problem.train_cost, w, c, N, batchsize, q=q, ids=None )
+    
+    g_hat += problem.grad_prior( w )
+    
+    if t==0:
+      g_mom = g_hat.copy()
+    else:
+      g_mom = mom_beta1*g_mom + (1-mom_beta1)*g_hat
+      
+    if t==0:
+      g_squared = pow( g_hat, 2 )
+    else:
+      #g_var = mom*g_var + (1-mom)*pow( g_hat, 2 )
+      if update_method == "adagrad":
+        g_squared = g_squared + g_hat**2
+      else:
+        g_squared = mom_beta2*g_squared + (1-mom_beta2)*g_hat**2
+      #elif update_method == "rmsprop" or update_method == "adam":
+      #  g_squared = mom_beta2*g_squared + (1-mom_beta2)*g_hat**2
+    
+    print "before ",w
+    print "    g_mom: ", g_mom
+    print "    g_sqr: ",g_squared
+    if update_method == "grad":
+      w = w - 0.5*alpha*g_mom - np.sqrt(alpha+0.5*alpha*g_mom*g_squared)*np.random.randn( len(w) )
+      #print w
+      
+    elif update_method == "adagrad" or update_method == "rmsprop":
+      w = w - 0.5*alpha*g_mom / (1e-3 + np.sqrt(g_squared) ) - np.sqrt(alpha)*np.random.randn( len(w) )
+      
+    elif update_method == "adam":
+      gamma_adam = np.sqrt( 1.0-(1-mom_beta2)**(t+1)) / ( 1.0-(1-mom_beta1)**(t+1))
+      #pdb.set_trace()
+      w = w - 0.5*alpha*g_mom*gamma_adam / (1e-3 + np.sqrt(g_squared) ) - np.sqrt(alpha)*np.random.randn( len(w) )
+    
+    w = problem.fix_w( w )
+    
+    alpha *= gamma_alpha
+    c     *= gamma_c
+
+    if np.mod(t+1,verbose_rate)==0:
+      train_error = problem.train_error( w )
+      test_error = problem.test_error( w )
+      print "%4d error %0.4f cost %0.4f  alpha %0.4f"%(t+1, train_error, test_error,alpha)
+      errors.append( [train_error,test_error])
+
+  return w, np.array(errors)
+  
 def spall_abc( w, params ):
   problem   = params["ml_problem"]
   recorder  = params["recorder"]
@@ -298,7 +426,9 @@ def spall_abc( w, params ):
   update_method   = params["update_method"]
   init_seed = params["init_seed"]
   verbose_rate = params["verbose_rate"]
-
+  sgld_alpha = params["sgld_alpha"]
+  
+  max_steps = params["max_steps"]
 
   q_rate  =params["q_rate"]
   q0=q
@@ -317,20 +447,25 @@ def spall_abc( w, params ):
   errors = [[train_error,test_error]]
   g_squared = np.zeros(len(w))
   seed = init_seed
+  
+  others = []
+  param_noise   = []
+  injected_noise = []
+  
   for t in xrange(max_iters):
     c_tilde = 1.15*c
     
-    g_hat, h_hat, seed = spsa_abc_gradient( problem.train_cost, w, c, q=q, seed=seed, hessian= False, c_tilde=c_tilde )
+    g_hat, h_hat, seed, Vj = spsa_abc_gradient( problem.train_cost, w, c, q=q, seed=seed, hessian= False, c_tilde=c_tilde )
     
     q = int(q0*pow( q_rate, t ) )
-    
+    #print "q=",q
     g_hat += problem.grad_prior( w )
 
     if t==0:
       g_mom = g_hat.copy()
     else:
       g_mom = mom_beta1*g_mom + (1-mom_beta1)*g_hat
-      g_mom = mom*g_mom + (1-mom)*g_hat
+      #g_mom = mom*g_mom + (1-mom)*g_hat
 
     if t==0:
       g_squared = pow( g_hat, 2 )
@@ -338,12 +473,36 @@ def spall_abc( w, params ):
       if update_method == "adagrad":
         g_squared = g_squared + g_hat**2
       elif update_method == "rmsprop" or update_method == "adam":
+        #g_squared = mom_beta2*g_squared + (1-mom_beta2)*(g_hat-g_mom)**2
         g_squared = mom_beta2*g_squared + (1-mom_beta2)*g_hat**2
     
     #print "before ",w
     #print "    g_mom: ", g_mom
     #print "    g_sqr: ",g_squared
     if update_method == "grad":
+      sgld_criteria = alpha*Vj/(4*q)
+      I = pp.find( sgld_criteria > sgld_alpha )
+      if len(I)>0:
+        vio = np.sum( sgld_criteria[I] - sgld_alpha )
+      else:
+        vio=0
+        
+      loglik_noise = alpha*alpha*Vj/(4*q)
+      #injected_noise = sgld_epsilon
+      
+      param_noise.append( loglik_noise )
+      injected_noise.append( alpha*np.ones(len(loglik_noise)) )
+      others.append([loglik_noise.mean(),alpha,len(I),vio,np.sum( sgld_criteria - sgld_alpha ), np.sum(Vj)/(q*np.dot(g_hat.T,g_hat))])
+      
+      nrm = np.linalg.norm( alpha*g_mom)
+      if nrm > max_steps.mean():
+        print "reducing nrm"
+        g_mom = alpha*max_steps.mean()*g_mom/(nrm)
+        #pdb.set_trace()
+      # for j in range(len(g_mom)):
+      #   if np.abs( alpha*g_mom[j] ) > max_steps[j]:
+      #     print "reducing %d"%(j)
+      #     g_mom[j] = max_steps[j]/alpha
       w = w - alpha*g_mom
       
     elif update_method == "adagrad" or update_method == "rmsprop":
@@ -351,10 +510,38 @@ def spall_abc( w, params ):
       
     elif update_method == "adam":
       gamma_adam = np.sqrt( 1.0-(1-mom_beta2)**(t+1)) / ( 1.0-(1-mom_beta1)**(t+1))
-      #pdb.set_trace()
+      adam_alpha = alpha*gamma_adam/(1e-3 + np.sqrt(g_squared) )
+      adam_epsilon = 2*adam_alpha
+      
+      #print "ADAM alpha: ",  adam_alpha
+      #sgld_criteria = np.dot( adam_epsilon.T, Vj)/(4*q)
+      sgld_criteria = adam_epsilon * Vj/float(4*q)
+      #sgld_epsilon = 2.0*alpha*g_mom*gamma_adam / (1e-3 + np.sqrt(g_squared) )
+      
+      I = pp.find( sgld_criteria > sgld_alpha )
+      if len(I)>0:
+        vio = np.sum( sgld_criteria[I] - sgld_alpha )
+      else:
+        vio=0
+        
+      loglik_noise = adam_epsilon*adam_epsilon*Vj/(4*q)
+      #injected_noise = sgld_epsilon
+      
+      param_noise.append( loglik_noise )
+      injected_noise.append( adam_epsilon )
+      others.append([loglik_noise.mean(),adam_epsilon.mean(),len(I),vio,np.sum( sgld_criteria - sgld_alpha ), np.sum(Vj)/(q*np.dot(g_hat.T,g_hat))])
+      if np.mod(t+1,verbose_rate)==0:
+        print "ADAM alpha: ",  alpha*gamma_adam/(1e-3 + np.sqrt(g_squared) ) 
+      
       w = w - alpha*g_mom*gamma_adam / (1e-3 + np.sqrt(g_squared) ) 
     
+    w = problem.fix_w( w )
     #print "after ",w
+    
+    # if t < 200:
+    #   alpha *= gamma_alpha
+    # else:
+    #   alpha *= 0.995
     alpha *= gamma_alpha
     c     *= gamma_c
     
@@ -366,8 +553,311 @@ def spall_abc( w, params ):
     if np.mod(t+1,verbose_rate)==0:
       print "%4d train %0.4f test %0.4f  alpha %g  "%(t+1, train_error, test_error,alpha), problem.model.current.theta
 
-  return w, np.array(errors)
+  return w, np.array(errors), ( np.array(others), np.array(param_noise), np.array(injected_noise) )
 
+def spall_abc_sgld( w, params ):
+  problem   = params["ml_problem"]
+  recorder  = params["recorder"]
+  max_iters = params["max_iters"]
+  q         = params["q"] # the nbr of repeats for spsa
+  c0         = params["c"]
+  alpha0     = params["alpha"]
+  #gamma     = params["gamma"]
+  gamma_alpha     = params["gamma_alpha"]
+  gamma_c     = params["gamma_c"]
+  gamma_eps     = params["gamma_eps"]
+  mom_beta1       = params["mom_beta1"]
+  mom_beta2       = params["mom_beta2"]
+  update_method   = params["update_method"]
+  init_seed = params["init_seed"]
+  verbose_rate = params["verbose_rate"]
+  
+  sgld_alpha = params["sgld_alpha"]
+  max_steps = params["max_steps"]
+
+  q_rate  =params["q_rate"]
+  q0=q
+  p = len(w)
+  # if hessian:
+  #   h_bar         = np.zeros( (p,p))
+  #   h_bar_bar     = np.zeros( (p,p) )
+  #   h_bar_bar_inv = np.zeros( (p,p) )
+  
+  c=c0
+  alpha=alpha0
+  init_cost = problem.train_cost( w )
+  train_error = problem.train_error( w )
+  test_error = problem.test_error( w )
+  ids = None
+  errors = [[train_error,test_error]]
+  
+  g_squared = np.zeros(len(w))
+  seed = init_seed
+  
+  others = []
+  param_noise   = []
+  injected_noise = []
+  
+  for t in xrange(max_iters):
+    c_tilde = 1.15*c
+    
+    g_hat, seed = finite_difference_abc_gradient( problem.train_cost, w, c, seed=seed )
+    
+    q = int(q0*pow( q_rate, t ) )
+    
+    g_hat += problem.grad_prior( w )
+
+    if t==0:
+      g_mom = g_hat.copy()
+    else:
+      g_mom = mom_beta1*g_mom + (1-mom_beta1)*g_hat
+      #g_mom = mom*g_mom + (1-mom)*g_hat
+
+    if t==0:
+      g_squared = pow( g_hat, 2 )
+    else:
+      if update_method == "adagrad":
+        g_squared = g_squared + g_hat**2
+      elif update_method == "rmsprop" or update_method == "adam":
+        g_squared = mom_beta2*g_squared + (1-mom_beta2)*g_hat**2
+      else:
+        g_squared = mom_beta2*g_squared + (1-mom_beta2)*(g_hat-g_mom)**2
+    
+    #sgld_epsilon = 2.0*alpha
+    
+    # print "before ",w
+    # print "    g_mom: ", g_mom
+    # print "    g_sqr: ",g_squared
+    if update_method == "grad":
+      
+      
+      sgld_criteria = alpha*Vj/(4*q)
+      I = pp.find( sgld_criteria > sgld_alpha )
+      if len(I)>0:
+        vio = np.sum( sgld_criteria[I] - sgld_alpha )
+      else:
+        vio=0
+        
+      loglik_noise = alpha*alpha*Vj/(4*q)
+      #injected_noise = sgld_epsilon
+      
+      param_noise.append( loglik_noise )
+      injected_noise.append( alpha*np.ones(len(loglik_noise)) )
+      others.append([loglik_noise.mean(),alpha,len(I),vio,np.sum( sgld_criteria - sgld_alpha ), np.sum(Vj)/(q*np.dot(g_hat.T,g_hat))])
+      
+      
+      
+      
+      if np.mod(t+1,verbose_rate)==0:
+        print "sgld criteria = ", alpha*Vj/(4*q), "nbr violators = ", len(I), vio, "byrd criteria = ", np.sum(Vj)/(q*np.dot(g_hat.T,g_hat))  
+      
+      #w = w - 0.5*alpha*g_mom - np.sqrt(alpha)*np.random.randn( len(w) )
+      w = w - 0.5*alpha*g_mom + np.sqrt(alpha+0.25*alpha*alpha*g_squared)*np.random.randn( len(w) )
+      
+      #pdb.set_trace()
+            
+    elif update_method == "adagrad" or update_method == "rmsprop":
+      w = w - 0.5*alpha*g_mom / (1e-3 + np.sqrt(g_squared) ) - np.sqrt(alpha)*np.random.randn( len(w) )
+      
+    elif update_method == "adam":
+      #print "BROKEN!"
+      gamma_adam = np.sqrt( 1.0-(1-mom_beta2)**(t+1)) / ( 1.0-(1-mom_beta1)**(t+1))
+      adam_alpha = alpha*gamma_adam/(1e-3 + np.sqrt(g_squared) )
+      adam_epsilon = 2*adam_alpha
+      
+      #print "ADAM alpha: ",  adam_alpha
+      #sgld_criteria = np.dot( adam_epsilon.T, Vj)/(4*q)
+      sgld_criteria = adam_epsilon * Vj/float(4*q)
+      #sgld_epsilon = 2.0*alpha*g_mom*gamma_adam / (1e-3 + np.sqrt(g_squared) )
+      
+      I = pp.find( sgld_criteria > sgld_alpha )
+      if len(I)>0:
+        vio = np.sum( sgld_criteria[I] - sgld_alpha )
+      else:
+        vio=0
+        
+      loglik_noise = adam_epsilon*adam_epsilon*Vj/(4*q)
+      #injected_noise = sgld_epsilon
+      
+      param_noise.append( loglik_noise )
+      injected_noise.append( adam_epsilon )
+      others.append([loglik_noise.mean(),adam_epsilon.mean(),len(I),vio,np.sum( sgld_criteria - sgld_alpha ), np.sum(Vj)/(q*np.dot(g_hat.T,g_hat))])
+      
+      
+      
+      #I = pp.find( sgld_criteria > sgld_alpha )
+      if np.mod(t+1,verbose_rate)==0:
+        print "ADAM alpha: ",  adam_alpha
+        print "sgld criteria = ", sgld_criteria, "nbr violators = ", len(I)
+        print "seed ",seed
+      
+      
+      #pdb.set_trace()
+      #w = w - 0.5*adam_epsilon*g_mom - np.sqrt(adam_epsilon)*np.random.randn( len(w) )
+    
+      w = w - 0.5*adam_epsilon*g_mom - np.sqrt(adam_epsilon)*np.random.randn( len(w) )
+    
+    w = problem.fix_w( w )
+    
+    #print "after ",w
+    alpha *= gamma_alpha
+    alpha = max(alpha, alpha0/10)
+    c     *= gamma_c
+    
+    problem.model.current.response_groups[0].epsilon *= gamma_eps
+    
+    train_error = problem.train_error( w )
+    test_error = problem.test_error( w )
+    errors.append( [train_error,test_error])
+    if np.mod(t+1,verbose_rate)==0:
+      print "%4d train %0.4f test %0.4f  alpha %g  "%(t+1, train_error, test_error,alpha), problem.model.current.theta
+
+  return w, np.array(errors), ( np.array(others), np.array(param_noise), np.array(injected_noise) )
+
+def spall_abc_ld( w, params ):
+  problem   = params["ml_problem"]
+  recorder  = params["recorder"]
+  max_iters = params["max_iters"]
+  q         = params["q"] # the nbr of repeats for spsa
+  c0         = params["c"]
+  alpha0     = params["alpha"]
+  #gamma     = params["gamma"]
+  gamma_alpha     = params["gamma_alpha"]
+  gamma_c     = params["gamma_c"]
+  gamma_eps     = params["gamma_eps"]
+  mom_beta1       = params["mom_beta1"]
+  mom_beta2       = params["mom_beta2"]
+  update_method   = params["update_method"]
+  init_seed = params["init_seed"]
+  verbose_rate = params["verbose_rate"]
+  
+  sgld_alpha = params["sgld_alpha"]
+  max_steps = params["max_steps"]
+
+  q_rate  =params["q_rate"]
+  q0=q
+  p = len(w)
+  # if hessian:
+  #   h_bar         = np.zeros( (p,p))
+  #   h_bar_bar     = np.zeros( (p,p) )
+  #   h_bar_bar_inv = np.zeros( (p,p) )
+  
+  c=c0
+  alpha=alpha0
+  init_cost = problem.train_cost( w )
+  train_error = problem.train_error( w )
+  test_error = problem.test_error( w )
+  ids = None
+  errors = [[train_error,test_error]]
+  
+  g_squared = np.zeros(len(w))
+  seed = init_seed
+  
+  others = []
+  param_noise   = []
+  injected_noise = []
+  
+  
+  
+  for t in xrange(max_iters):
+    seed = t
+    
+    current_loglik = problem.train_cost( w, seed=seed )
+    
+    
+    g_hat, seed = finite_difference_abc_gradient( problem.train_cost, w, c, seed=seed )
+    seed = t
+    
+    g_hat += problem.grad_prior( w )
+
+    if t==0:
+      g_mom = g_hat.copy()
+    else:
+      g_mom = mom_beta1*g_mom + (1-mom_beta1)*g_hat
+
+    if t==0:
+      g_squared = pow( g_hat, 2 )
+    else:
+      if update_method == "adagrad":
+        g_squared = g_squared + g_hat**2
+      elif update_method == "rmsprop" or update_method == "adam":
+        g_squared = mom_beta2*g_squared + (1-mom_beta2)*g_hat**2
+      else:
+        g_squared = mom_beta2*g_squared + (1-mom_beta2)*(g_hat-g_mom)**2
+    
+    if update_method == "grad":
+      delta_w = 0.5*alpha*alpha*g_mom + alpha*np.random.randn( len(w) )
+      
+            
+    elif update_method == "adagrad" or update_method == "rmsprop":
+      delta_w = 0.5*alpha*alpha*g_mom / (1e-3 + np.sqrt(g_squared) ) - alpha*np.random.randn( len(w) )
+      
+      
+    elif update_method == "adam":
+      #print "BROKEN!"
+      gamma_adam = np.sqrt( 1.0-(1-mom_beta2)**(t+1)) / ( 1.0-(1-mom_beta1)**(t+1))
+      adam_alpha = alpha*gamma_adam/(1e-3 + np.sqrt(g_squared) )
+      adam_epsilon = 2*adam_alpha
+      
+      #print "ADAM alpha: ",  adam_alpha
+      #sgld_criteria = np.dot( adam_epsilon.T, Vj)/(4*q)
+      #sgld_criteria = adam_epsilon * Vj/float(4*q)
+      #sgld_epsilon = 2.0*alpha*g_mom*gamma_adam / (1e-3 + np.sqrt(g_squared) )
+      
+      #I = pp.find( sgld_criteria > sgld_alpha )
+      #if len(I)>0:
+      #  vio = np.sum( sgld_criteria[I] - sgld_alpha )
+      #else:
+      #  vio=0
+        
+      #loglik_noise = adam_epsilon*adam_epsilon*Vj/(4*q)
+      #injected_noise = sgld_epsilon
+      
+      #param_noise.append( loglik_noise )
+      #injected_noise.append( adam_epsilon )
+      #others.append([loglik_noise.mean(),adam_epsilon.mean(),len(I),vio,np.sum( sgld_criteria - sgld_alpha ), np.sum(Vj)/(q*np.dot(g_hat.T,g_hat))])
+      
+      
+      
+      #I = pp.find( sgld_criteria > sgld_alpha )
+      #if np.mod(t+1,verbose_rate)==0:
+      #  print "ADAM alpha: ",  adam_alpha
+      #  print "sgld criteria = ", sgld_criteria, "nbr violators = ", len(I)
+      #  print "seed ",seed
+      
+      
+      #pdb.set_trace()
+      #w = w - 0.5*adam_epsilon*g_mom - np.sqrt(adam_epsilon)*np.random.randn( len(w) )
+      delta_w = 0.5*adam_epsilon*g_mom - np.sqrt(adam_epsilon)*np.random.randn( len(w) )
+      #w = w - 0.5*adam_epsilon*g_mom - np.sqrt(adam_epsilon)*np.random.randn( len(w) )
+    
+    proposed_w = w - delta_w
+    
+    proposed_loglik = problem.train_cost( proposed_w, seed=seed )
+    if np.mod(t+1,verbose_rate)==0:
+      print "proposed = %0.1f  current = %0.1f  dif = %0.1f"%(proposed_loglik, current_loglik,proposed_loglik - current_loglik)
+    if np.log(np.random.rand()) < proposed_loglik - current_loglik:
+      current_loglik = proposed_loglik
+      w = proposed_w
+    
+    w = problem.fix_w( w )
+    
+    #print "after ",w
+    alpha *= gamma_alpha
+    alpha = max(alpha, alpha0/10)
+    c     *= gamma_c
+    
+    problem.model.current.response_groups[0].epsilon *= gamma_eps
+    
+    train_error = problem.train_error( w )
+    test_error = problem.test_error( w )
+    errors.append( [train_error,test_error])
+    if np.mod(t+1,verbose_rate)==0:
+      print "%4d train %0.4f test %0.4f  alpha %g  "%(t+1, train_error, test_error,alpha), problem.model.current.theta
+
+  return w, np.array(errors), ( np.array(others), np.array(param_noise), np.array(injected_noise) )
+
+  
 def spall_with_hessian( w, params ):
   problem   = params["ml_problem"]
   max_iters = params["max_iters"]
@@ -428,6 +918,7 @@ def spall_with_hessian( w, params ):
     #w = w - alpha*adj_grad
 
     alpha *= gamma
+    
     c     *= gamma
     #alpha=c
     if np.mod(t+1,100)==0:

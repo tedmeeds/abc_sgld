@@ -102,7 +102,8 @@ def finite_difference_abc_gradient( f, w, c, seed = None ):
 
     g[i] = (f_plus-f_minus)/(2*c)
 
-    if np.isinf( f_plus ) or np.isinf( f_minus ):
+    #print "   ",i,"f's  ", f_plus, f_minus, f_minus-f_plus, 2*c, g[i]
+    if np.isinf( f_plus ) or np.isinf( f_minus ) or np.isnan( f_plus ) or np.isnan( f_minus ):
       pdb.set_trace()
 
   h = None
@@ -714,6 +715,107 @@ def spall_abc_sgld( w, params ):
 
   return w, np.array(errors), ( np.array(others), np.array(param_noise), np.array(injected_noise) )
 
+def spall_abc_sgnht( w, params ):
+  problem   = params["ml_problem"]
+  recorder  = params["recorder"]
+  max_iters = params["max_iters"]
+  q         = params["q"] # the nbr of repeats for spsa
+  c0         = params["c"]
+  alpha0     = params["alpha"]
+  #gamma     = params["gamma"]
+  gamma_alpha     = params["gamma_alpha"]
+  gamma_c     = params["gamma_c"]
+  gamma_eps     = params["gamma_eps"]
+  mom_beta1       = params["mom_beta1"]
+  mom_beta2       = params["mom_beta2"]
+  update_method   = params["update_method"]
+  init_seed = params["init_seed"]
+  verbose_rate = params["verbose_rate"]
+  
+  A = params["A"]
+  
+  sgld_alpha = params["sgld_alpha"]
+  max_steps = params["max_steps"]
+
+  q_rate  =params["q_rate"]
+  q0=q
+  p = len(w)
+  # if hessian:
+  #   h_bar         = np.zeros( (p,p))
+  #   h_bar_bar     = np.zeros( (p,p) )
+  #   h_bar_bar_inv = np.zeros( (p,p) )
+  
+  c=c0
+  alpha=alpha0
+  init_cost = problem.train_cost( w )
+  train_error = problem.train_error( w )
+  test_error = problem.test_error( w )
+  ids = None
+  errors = [[train_error,test_error]]
+  
+  g_squared = np.zeros(len(w))
+  seed = init_seed
+  
+  others = []
+  param_noise   = []
+  injected_noise = []
+  
+  xi = A
+  h  = alpha0
+  nw = len(w)
+  p  = np.random.randn( nw )
+  
+  u_stream = np.zeros( max_iters, dtype=int )
+  u_stream2 = np.zeros( max_iters, dtype=int )
+  tau = params["seed_tau"]
+  c   = 0
+  #np.random.seed(4)
+  for t in xrange(max_iters):
+    if c+1 == tau:
+      u_stream[t] = np.random.randint(5*max_iters)
+      c = 0
+    else:
+      u_stream[t] = u_stream[t-1]
+      c += 1
+    u_stream2[t] = np.random.randint(10*max_iters)
+    
+  c=c0  
+  for t in xrange(max_iters):
+    #print "t = ",t
+    g_hat, seed = finite_difference_abc_gradient( problem.train_cost, w, c, seed=u_stream[t] )
+    np.random.seed( u_stream2[t] )
+    
+    g_hat += problem.grad_prior( w )
+    grad_U = -g_hat
+    #print "grad_U: ",grad_U
+    p = p - xi*p*h - grad_U*h + np.sqrt(2.0*A*h)*np.random.randn(nw)
+    #print "p: ",p
+    w = w + p*h
+    w = problem.fix_w( w )
+    
+    #print "w: ",w
+    xi = xi + h*(np.dot( p.T, p )/float(nw) - 1.0)
+      
+    if np.mod(t+1,verbose_rate)==0:
+      print "xi: ",  xi
+      
+    
+    
+    #print "after ",w
+    alpha *= gamma_alpha
+    alpha = max(alpha, alpha0/10)
+    c     *= gamma_c
+    
+    problem.model.current.response_groups[0].epsilon *= gamma_eps
+    
+    train_error = problem.train_error( w )
+    test_error = problem.test_error( w )
+    errors.append( [train_error,test_error])
+    if np.mod(t+1,verbose_rate)==0:
+      print "%4d train %0.4f test %0.4f  alpha %g  "%(t+1, train_error, test_error,alpha), problem.model.current.theta
+
+  return w, np.array(errors), ( np.array(others), np.array(param_noise), np.array(injected_noise) )
+  
 def spall_abc_ld( w, params ):
   problem   = params["ml_problem"]
   recorder  = params["recorder"]

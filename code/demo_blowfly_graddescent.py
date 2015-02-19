@@ -11,13 +11,13 @@ problem_params["epsilon"] = 0.1 #0.01 #10*np.array([1.0,1.0,0.5,0.5,0.5,0.1,0.01
 #problem_params["epsilon"] = 0.1*np.array([0.1,0.1,0.1,0.1,0.1,0.01,0.01,0.1,1.0,1.0])
 problem_params["epsilon"] = 0.01*np.array([  0.91064006,   0.12437852,   1.06735857,   1.70135243,1.10402222,   0.22966667, 0.08973333,   1.28127273, 10.        ,   9.        ])
 
-problem_params["epsilon"] = 2*np.array([  0.05,   0.05,   0.05,   0.05, 0.05,  0.02, 0.02,  0.05, 0.01        ,  3.0        ])
+problem_params["epsilon"] = 10*np.array([  0.05,   0.05,   0.05,   0.05, 0.05,  0.02, 0.02,  0.05, 0.01        ,  3.0        ])
 
 problem_params["blowfly_filename"] = "./data/blowfly.txt"
 #problem_params["blowfly_filename"] = "./data/bf2.txt"
 problem = BlowflyProblem( problem_params, force_init = True )
 
-state_params = state_params_factory.scrape_params_from_problem( problem, S=5 )
+state_params = state_params_factory.scrape_params_from_problem( problem, S=1 )
 
 # set is_marginal to true so using only "current" state will force a re-run
 mcmc_params  = mcmc_params_factory.scrape_params_from_problem( problem, type="mh", is_marginal = True, nbr_samples = 1 )
@@ -101,7 +101,8 @@ if __name__ == "__main__":
   pp.close('all')
   abc_problem = LikelihoodFree( problem, model, state, recorder )
   
-  max_iters = 2000
+  max_iters = 10000
+  A = 10.0
   #q         = 1
   #c         = 0.2
   #alpha     = 0.1
@@ -109,7 +110,7 @@ if __name__ == "__main__":
   mom_beta1 = 0.9 # on gradient
   mom_beta2 = 0.9 # on gradient_squared
   #cs = [0.5,0.1,0.2,0.3]
-  cs = [10*0.01] #np.array([0.5,0.1,0.1,0.5,0.01,0.1])]
+  cs = [100*0.01] #np.array([0.5,0.1,0.1,0.5,0.01,0.1])]
   #cs = [0.01*np.array([ 2. ,  2. ,  2. ,  2. ,  2. ,  0.5])]
   gammas = [0.9999]
   moms = [0.0]
@@ -120,7 +121,7 @@ if __name__ == "__main__":
     #alpha = 1e-8 #*3*c/(4)
     #alpha = 10*1e-1*min(problem_params["epsilon"])
     # for others
-    alpha = 1e-6 #*3*c/(4)
+    alpha = 1e-3 #*3*c/(4)
     #alpha  = 1.001 #0.00002 #*3*c/(4)
     for gamma in gammas:
       for mom in moms:
@@ -129,7 +130,7 @@ if __name__ == "__main__":
           theta_rand = problem.theta_prior_rand()
           w = theta_rand #[:5]
           #w = problem.prior_means
-          w = np.array([ 4.35903234, -1.35623493,  4.85356335, -2.80869085, -0.98398321, 1.85635901])
+          #w = np.array([ 4.35903234, -1.35623493,  4.85356335, -2.80869085, -0.98398321, 1.85635901])
           #w[-1] = np.log(w[-1])
           spall_abc_params = {"ml_problem":abc_problem, 
                               "recorder":recorder,
@@ -148,12 +149,15 @@ if __name__ == "__main__":
                               "hessian":False,
                               "h_delta":0.1,
                               "q_rate":1.00,
+                              "A":A,
+                              "seed_tau": 1,
                               "sgld_alpha":0.1,
                               "max_steps": 10.1*problem.prior_stds
                               }
           
           #wout, errors, others = spall_abc( w, spall_abc_params )
-          wout, errors, others = spall_abc_sgld( w, spall_abc_params )
+          #wout, errors, others = spall_abc_sgld( w, spall_abc_params )
+          wout, errors, others = spall_abc_sgnht( w, spall_abc_params )
           #wout, errors = spall_with_hessian( w, spall_params )
   
           result.append({"c":c,"alpha":alpha,"gamma":gamma, "mom":mom, "q":q, "errors":errors,"w":wout})
@@ -221,11 +225,11 @@ for j in range(D):
   #pp.vlines(problem.obs_statistics[j], 0, ax[3], color="b", lw=4, alpha=4)
   pp.axis('tight')
 pp.suptitle( "Left: Posterior of log, Right: Posterior")  
-
-pp.figure()
-pp.semilogy( others[1] )  
-pp.semilogy( others[0][:,0],'k-',lw=4 )
-pp.semilogy( others[0][:,1],'b-',lw=4 )
-pp.title("gradient and injected")
+#
+# pp.figure()
+# pp.semilogy( others[1] )
+# pp.semilogy( others[0][:,0],'k-',lw=4 )
+# pp.semilogy( others[0][:,1],'b-',lw=4 )
+# pp.title("gradient and injected")
 pp.show()    
     

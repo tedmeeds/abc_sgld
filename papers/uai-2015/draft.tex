@@ -31,6 +31,7 @@
 % the note in the first column to ``Under review.  Do not distribute.''
 \usepackage{bm}
 \usepackage{amsmath}
+\usepackage[numbers]{natbib}
 %\usepackage{array}
 %\usepackage{nips_style} 
 %\usepackage{sidecap}
@@ -52,7 +53,7 @@
 \input{cdefs}
 
 
-\title{Likelihood-free Inference and Optimization \\ using Stochastic Gradient Approximations}
+\title{Hamiltonian ABC}
 
 \author{} % LEAVE BLANK FOR ORIGINAL SUBMISSION.
           % UAI  reviewing is double-blind.
@@ -86,33 +87,199 @@
 % \input{abstract}
 % \end{abstract} 
 \begin{abstract} 
-In this paper we apply recent techniques from Bayesian inference that use gradient information to sample efficiently from the true posterior distribution to the {\em likelihood-free} or {\em approximate Bayesian computation} (ABC) setting.  To do this for ABC we adopt a {\em gradient-free} stochastic approximation algorithm by Spall~\cite{spall1999}.  Together these algorithms provide both optimization and inference for likelihood-free models as the algorithm ABC-SGLD transitions from optimization to sampling.  We demonstrate ABC-SGLD on problems where the true gradient information is known and on challenging ABC simulators.
+  Approximate Bayesian computation (ABC) is a powerful and elegant framework for performing inference in simulation-based models.  However, due to the difficulty in scaling likelihood estimates, ABC remains useful for relatively low-dimensional problems.  [REASONS] We introduce Hamiltonian ABC (HABC), a set of likelihood-free algorithms that apply recent advances in scaling Bayesian learning using stochastic gradients with Hamiltonian dynamics to simulation models.   [WHY GOOD: low nbr sims and non-random walk]  We find that a small number forward simulations can effectively approximate the true ABC gradient, allowing Hamiltonian dynamics to efficiently traverse parameter spaces.
+  
+  
+  Models in simulation-based science domains are considered likelihood-free (LF) since they are not defined by a probabilistic model, but by a simulator that maps parameters to pseudo-observations.  To perform parameter inference in the models, a powerful set of statistical procedures called Approximate Bayesian Computation (ABC) can be applied.  Although there is a wide variety of ABC algorithms, they are dominated by SMC/PMC and MCMC.  These have been successful, but their inefficiency of producing samples from the approximate posterior has limited ABC to simulations with relatively few parameters.  Hamiltonian Monte Carlo (HMC)  provides a framework for extending ABC to high-dimensions, but requires computing the gradient of the log-likelihood.  With Hamiltonian ABC, we show how recent advances of stochastic gradient HMC algorithms applied to the big data domain can be also used for efficient sampling for LF models.  We find that a small number forward simulations can effectively approximate the true ABC gradient, allowing Hamiltonian dynamics to efficiently traverse parameter spaces.   We demonstrate HABC on several typical ABC problems, and show that HABC performs comparably to regular Bayesian inference on a high-dimensional problem from machine learning.
+%
+%
+%   Bayesian inference in simulation-based science relies
+%   Approximate Bayesian Computation (ABC) is a set of inference procedures
+%   for so-called {\em likelihood-free} models
+%
+% In this paper we apply recent techniques from Bayesian inference that use gradient information to sample efficiently from the true posterior distribution to the {\em likelihood-free} or {\em approximate Bayesian computation} (ABC) setting.  To do this for ABC we adopt a {\em gradient-free} stochastic approximation algorithm by Spall~\cite{spall1999}.  Together these algorithms provide both optimization and inference for likelihood-free models as the algorithm ABC-SGLD transitions from optimization to sampling.  We demonstrate ABC-SGLD on problems where the true gradient information is known and on challenging ABC simulators.
 \end{abstract} 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{INTRODUCTION} \label{introduction}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{itemize}
-  \item  Arguably the two most useful procedures in simulation-based science are optimization and Bayesian inference.  
-  \item  Optimization can take the form of simple grid-search to sophisticated techniques like factorial design \cite{factorialdesign}, Bayesian experiment design \cite{bayesexpdesign}, (mention others).
-  \item Recently, Bayesian optimization techniques have shown success in optimizing very expensive black-box simulators \cite{bosuccess}.
-  \item The main approach of Bayesian inference of simulator parameters is ABC.  ABC is largely based a few sampling algorithms: SMC and MCMC.  
-  \item Though gradients are not directly computable for simulators, they can be computed analytically by using finite differences (see \cite{kiefer1952}).  This quickly becomes infeasible for large $p$ problems.  There is however an alternative stochastic approximation algorithm by Spall \cite{spall1999} that requires only 2 simulation calls independent of $p$.  
-  \item By using this approximation, gradient-based algorithms can be adopted for simulators: for optimization, using analogous stochastic gradient descent algorithms and for Bayesian inference using Langevin dynamics \cite{langevin}.
-  \item Recently, the SGLD \cite{wellingsgld} algorithm has efficiently combined optimization with inference using ideas from SGD with Langevin dynamics.
-  \item This paper describes ABC-SGLD.
-\end{itemize}
+In simulation-based science, models are defined by simulator and parameters.  These are likelihood-free models because, in contrast to probabilistic models, their likelihoods are either intractable or must be approximated by simulations.
+
+Recent advances in Bayesian inference within the {\em big data} domain have combined the efficiency of stochastic gradient algorithms used for optimization with Hamiltonian dynamics;  these include Stochastic Gradient Langevin Dynamics (SGLD) \cite{welling2011bayesian}, Stochastic Gradient HMC \cite{chen2014stochastic}, and Stochastic Gradient Thermostats \cite{ding2014bayesian}.
+By using small batches of the full data set these methods are able to quickly compute a stochastic approximation to the true gradient, which with a small enough step-size and with an appropriate amount of injected noise, can produce samples from the true posterior.  The Hamiltonian dynamics avoid random walk behavior by providing momentum to the sampler allowing it to reach far away regions of parameter space.  Critically for the big data domain, the small step-sizes prevent the trajectories of the sampler from accumulating too much error and therefore they can avoid a Metropolis-Hastings correction step involving the full data set.
+
+Approximate Bayesian Computation (ABC) is a set of inference procedures for so-called {\em likelihood-free} models \cite{abccitations}.  In contrast to typical Bayesian modeling, where the parameters of a probabilistic model of data are the focus, the primary interest in ABC are the parameters of a simulation model.  The simulator can generate pseudo or auxiliary data by running the simulator with a set of parameter values, but it cannot compute a likelihood directly.  Inference involves running simulations, comparing pseudo data with observations, and using a distance between the two as an approximate likelihood.  Markov chain Monte Carlo (MCMC) or Sequential Monte Carlo (SMC) are the most common inference algorithms.  It can be shown that if the statistics used in the likelihood function are sufficient, then these algorithms sample correctly from an approximation to the true posterior.
+
+The approximation to the true posterior can be made arbitrarily small, in principle, by controlling the kernel width parameter $\epsilon$.  As $\epsilon \rightarrow 0$, however, simulated data must be closer and closer to the observations (or receive zero likelihood).  The acceptance rate of a Markov chain for small $\epsilon$ can therefore be low.  This inefficiency of ABC sampling is exacerbated by the random walk proposals.  As the dimensionality of the parameter space grows,  $\epsilon$ must grow to prevent low acceptance rates.  This has perhaps prevented application of ABC to high-dimensional simulators.  Our paper addresses this directly: can we use the sampling efficiency of Hamiltonian dynamics (i.e. high acceptance rates) in high-dimensional simulators? 
+
+In this paper we adopt the developments in scaling Bayesian inference to ABC.  To do this we use forward simulations to approximate the likelihood-free gradient.  The key difference with SG methods mentioned above is that the stochasticity of the gradient does not come from approximating the full data gradient with a batch gradient, but by the stochasticity of the simulator.  It is therefore not the expense of the simulator (though this could very well be the case for many interesting simulation-based models, and we address this in Future Work) that requires an approximation to the gradient, but the likelihood-free nature of the problem.  For high-dimensional parameter spaces, computing the gradients naively (i.e. by finite differences) can squash the gains brought by the Hamiltonian dynamics; to address this further approximations to the gradient can be used \cite{spall}.
+
+The approximate gradients used by HABC can be noisy and difficult to manage is care is not taken.  To address this we show how a local Gaussian approximation of the simulator output can improve the stability of the gradient estimates over a direct estimate using the ABC kernel function.  
+
+A further innovation of this paper is the use of common random numbers (CRN) to improve the efficiency of the Hamiltonian dynamics.  By using the same random seed for the finite difference approximation, the first order noise in the gradient is reduced;  by keeping the random seeds fixed for several consecutive steps, the second order stochasticity of one gradient estimate to the next is eliminated.  We show that this is a valid MCMC procedure.  
+ 
+In Section~\ref{sec:sghd-data} we review three approaches to stochastic gradient inference using Hamiltonian dynamics: SGLD, SGHMC, and SGNHT.  We briefly review ABC-MCMC in Section~\ref{sec:abcmcmc}, followed by Hamiltonian ABC in Section~\ref{sec:habc}, where  we will show how to improve the stability of the gradient estimates by using CRNs and local density estimators of the simulator.  Extensions to high-dimensional parameter spaces are also discussed.  In Section~\ref{sec:toy} we show how HABC behaves on a simple one-dimensional problem, then in Section~\ref{sec:experiments} we compare HABC with ABC-MCMC for two problems: a low-dimensional model of chaotic population dynamics and a high-dimensional problem. 
+ 
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{GRADIENTS FROM FORWARD SIMULATIONS} \label{gradsforward}
+\section{APPROXIMATE BAYESIAN COMPUTATION}\label{sec:abcmcmc}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Consider the Bayesian inference task of either drawing samples from or learning an approximate model of the following (usually intractable) posterior distribution:
+\begin{equation}
+  \pi(\thetav | \y_1, \ldots, \y_N ) \propto \pi(\thetav) \pi( \y_1, \ldots, \y_N  | \thetav )
+\end{equation}
+where $\pi(\thetav)$ is a prior distribution over parameters $\thetav \in {\rm I\!R}^{D}$ and $\pi( \y_1, \ldots, \y_N  | \thetav )$ is the likelihood of $N$ data observations, where $\y_n \in {\rm I\!R}^J$.  In ABC, the vector of $J$ observations are typically informative statistics of the raw observations.  
+  The simulator is treated as generator of random pseudo-observations, i.e. $\x \simsim \pi( \x | \thetav )$ is a draw from the simulator.  Discrepancies between the simulator outputs $\x$ and the observations $\y$ are scaled by a closeness parameter $\eps$ and treated as likelihoods.  This is the equivalent to putting an $\eps$-kernel around the observations, and using a Monte Carlo estimate of the likelihood using $S$ draws of $\x$: 
+\begin{equation}
+  \pi_{\epsvec}( \y | \thetav ) =  \int \pi_{\epsvec}(\y | \x ) \pi( \x | \thetav ) d\x 
+                           \approx  \frac{1}{S} \sum_{s=1}^S \pi_{\epsvec}(\y | \x^{(s)} ) \label{eq:abc_mc_approx}
+\end{equation}
 
-\subsection{Robbin's Monro: SGD}
+In ABC Markov chain Monte Carlo (MCMC) \cite{marjoram2003markov,Wilkinson2013,sisson:2010} the Metropolis-Hastings (MH) proposal distribution is composed of the product of the proposal for the parameters $\thetav$ and the proposal for the simulator outputs:
+\begin{equation}
+  q( \thetavp, \x^{(1)'}, \ldots, \x^{(S)'} | \thetav ) =  q( \thetavp | \thetav ) \prod_s \pi( \x^{(s)'} | \thetavp)
+\end{equation}
+Using this form of the proposal distribution, and using the Monte Carlo approximation eq~\ref{eq:abc_mc_approx}, we arrive at the following Metropolis-Hastings accept-reject probability,
+%
+\begin{equation}
+\alpha = \min \lp 1, \frac{\pi\lp\thetavp\rp \sum_{s=1}^S \pi_{\epsvec}(\y | \xps )  q( \thetav | \thetavp )}{\pi\lp\thetav\rp \sum_{s=1}^S \pi_{\epsvec}(\y | \xs ) q( \thetavp | \thetav )} \rp \label{eq:abc_mh_acceptance_with_s}
+\end{equation}
+%
+If the simulations are part of the Markov chain, the algorithm corresponds to the pseudo-marginal (PM) sampler \cite{delmoral2008,andrieu2009pseudo}, otherwise it is a marginal sampler \cite{marjoram2003markov,sisson:2010}.   For this paper we will be interested in the PM sampler because this is equivalent to having the random states that generated the simulation outputs in the state of the Markov chain, which we will use within a valid ABC sampling algorithm in Section~\ref{sec:habc}.
+%
+%   If they are discarded, the
+% Two subtly different versions of ABC-MCMC are the pseudo-marginal (PM) \cite{delmoral2008,andrieu2009pseudo} and marginal sampler \cite{marjoram2003markov,sisson:2010}.  In PM, the simulations are part of the state of the Markov chain whereas in the marginal sampler they are not
+% When only the numerator is re-estimated at every iteration (and the denominator is carried over from the previous iteration), then this algorithm corresponds to pseudo-marginal (PM) sampling \cite{delmoral2008,andrieu2009pseudo}. PM sampling is asymptotically correct (taking for granted the approximation introduced by the kernel $\pi_{\epsvec}$) but can display very poor mixing properties. By resampling the denominator as well, we improve mixing at the cost of introducing a further approximation. This sampler is known as the marginal sampler \cite{marjoram2003markov,sisson:2010}.
+% [TODO: END TAKEN FROM POPE]
+
+An alternative approach to computing the ABC likelihood is to estimate the parameters of a conditional model  $\pi(\x|\thetav)$, e.g. kernel density estimate \cite{TurnerGenLik2014} or a Gaussian model \cite{wood2010statistical}.  While either approach should be adequate and both have their own limits and advantages, for this paper we will use a Gaussian model.  In ABC, using a conditional Gaussian model for  $\pi(\x|\thetav)$ is called a {\em synthetic likelihood} (SL) model \cite{wood2010statistical}.  For a SL log-likelihood model, we compute estimators of the first and second moments of $\pi(\x|\thetav)$.  The advantage is that for a Gaussian $\epsilon$-kernel, we can convolve the two densities   
+\begin{eqnarray}
+  \pi_{\epsvec}( \y | \thetav ) & = & \int \mathcal{N}( \y | \x, \eps^2 ) \mathcal{N}( \x | 
+  \mu_{\thetav}, \sigma^2_{\thetav} ) d\x \\
+                          & = & \mathcal{N}( \y | \mu_{\thetav}, \sigma^2_{\thetav} + \eps^2 )
+\end{eqnarray}
+
+Of particular concern to this paper is the behavior of the log-likelihoods for different values of $\epsilon$.  In the $\eps$-kernel case, the log-likelihood is very sensitive to small values of $\eps$:
+\begin{eqnarray}
+  \log \pi_{\epsvec}( \y | \thetav ) & = & \log \sum_s \mathcal{N}( \y | \x^{(s)}, \eps^2 ) \\
+                          & = & \log \mathcal{N}( \y | \x^{(s)}, \eps^2 ) + \log\lp 1 + H \rp \\
+                          & \approx & -\log \eps -\frac{1}{2 \eps^2} ( \y - \x^{(m)} )^2 
+\end{eqnarray}
+where $m$ is the simulation that is closest to $\y$, $H$ is a sum over terms close to $0$. We can see that the log-likelihood can be set arbitrarily small by decreasing $\eps$.  On the other hand, by using a model of the simulation at $\thetav$
+\begin{eqnarray}
+ \log \pi_{\epsvec}( \y | \thetav ) & \approx & -\frac{1}{2} \log (\sigma^2_{\thetav} + \eps^2 ) -\frac{( \y - \mu_{\thetav} )^2 }{2 (\sigma^2_{\thetav} + \eps^2 )} 
+\end{eqnarray}
+ For the SL model, $\eps$ acts as a smoothing term and can be set to small values with little change to the log-likelihood, as long as the SL estimators are fit appropriately.  This insensitivity to $\eps$ will be used in Section~\ref{sec:habc} for estimating gradients of the ABC likelihood.  Before describing HABC in full detail however, we now explain how scaling Hamiltonian dynamics in Bayesian learning can be accomplished using stochastic gradients from batched data.
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{SCALING BAYESIAN INFERENCE USING HAMILTONIAN DYNAMICS} \label{sec:sghd-data}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Scaling Bayesian inference algorithms to massive datasets is necessary for their existing relevance in the so-called {\em big data} era.  We now review the role stochastic gradient methods combined with Hamiltonian dynamics have played in recent advances in scaling Bayesian inference.   Most importantly, these methods have combined the ability of HMC to explore high-dimensional parameter spaces with the computational efficiency of using stochastic gradients based on small batches of the full dataset.  After an overview of HMC, we will briefly describe stochastic gradient Hamiltonian dynamics (SGHDs), starting with using  Langevin dynamics \cite{welling2011bayesian}, then HMC with friction \cite{chen2014stochastic}, and finally HMC with thermostats \cite{ding2014bayesian}.  We will then make the connection between SGHDs and HABC in Section~\ref{sec:habc}.
+
+\subsection{Hamiltonian Monte Carlo}
+
+Hamiltonian dynamics are often necessary to adequately explore the target distribution of high-dimensional parameter spaces.  By proposing parameters that are far from the current location and yet have high acceptance probability, Hamiltonian Monte Carlo \cite{duane1987hybrid, neal2011mcmc}  can efficiently avoid random walk behavior that can render proposals in high-dimensions inadequate.
+
+HMC simulates the trajectory of a particle along a frictionless surface, using random initial momentum $\rhov$ and position $\thetav$.  The Hamiltonian function computes the energy of the system and the dynamics govern how the momentum and position change over time.  The continuous Hamiltonian dynamics can be simulated by discretizing time into small steps $\eta$.  If $\eta$ is small, the value of $\thetav$ at the end of a simulation can be used as proposals within the Metropolis-Hastings algorithm.  Hamiltonian dynamics should propose $\thetav$ that are always accepted, but errors due to discretization may require a  Metropolis-Hastings correction.  It is this correction step that SGHD algorithms want to avoid as it requires computing the log-likelihood over the full data set.
+
+More formally, the Hamiltonian $H\lp\thetav, \rhov \rp = U(\thetav) + K(\rhov)$ is a function of the current potential energy $U(\thetav)$ and kinetic energy $K(\rhov) = \rhov^T M^{-1}\rhov/2$ ($M$ is a diagonal matrix of masses which for presentation are set to $1$).  The potential energy is defined by negative log joint density of the data and prior:
+\begin{equation}
+  U(\thetav) = - \log \pi(\thetav) - \sum_{i=1}^N \log \pi(\yi | \thetav )
+\end{equation}
+The Hamiltonian dynamics follow 
+\begin{equation}
+  d\thetav = \rhov dt ~~~~~~~~~~~~ d\rhov = -\nabla U(\thetav) dt
+\end{equation}
+in simulation $dt = \eta$. 
+% Actual simulation of the Hamiltonian requires taking discrete steps, and therefore introduces some error.  The error can be corrected using a MH step, as shown in Algorithm 1 (showing leap-frog algorithm).  By only taking a single leap-frog step, HMC reduces to Langevin dynamics which can be represented as a gradient descent algorithm with injected noise.  By using small step-sizes the acceptance rate approaches 1, so that no MH correction steps are necessary and the algorithm can be run to generate a stream of (possibly highly correlated) samples from the posterior.
 
 
+% Two problems must be addressed.  The first is loglikelihood computation.  For correctness, Bayesian inference algorithms require frequent computation of the (deterministic) loglikelihood over the entire observation set.  Contrast this to optimization, where stochastic gradient techniques are necessary for learning parameters.  The second problem is that massive parameter sets is synonymous with massive datasets.  As datasets grow, so too do our models.  This is particularly true in the area of deep learning, where parameter vectors start in the hundred thousands and for some models are in the billions. Hamiltonian Monte Carlo addresses this for Bayesian inference: by using gradients of the log-likelihood (log-prior) it is possible to avoid random walk behavior and more efficiently explore the posterior.
 
+% Recent advances in scaling Bayesian inference to big data has shown that both batches and gradients can be used to correctly sample from the posterior distribution.  These use Hamiltonian dynamics based on stochastic gradients (where the stochasticity comes from approximating the true gradient with one based on a batch of data) with appropriate step-sizes (and variations, see below).  We now describe these algorithms and then show how we can adopt them for ABC.
 
-\subsection{Spall's method: SPSA}
+\subsection{Stochastic Gradient Hamiltonian Dynamics}
+If the log-likelihood over the full data set is replaced with a batch estimate, as is done for the following {\em stochastic gradient Hamiltonian dynamics} (SGHDs) algorithms, then the error in simulating the Hamiltonian dynamics comes not only from the discretization, but from the variance of the stochastic gradient.  As long as this error is controlled, either by using small steps $\eta$ (SGLD), or adding friction terms $A$ (SGHMC), or using a thermostat $\xi$ (SGNHT), the expensive MH correction step can be avoided and values of $\thetav$ from the Hamiltonian dynamics can be used as samples from the posterior.
+
+SGHDs replace the full potential energy and its gradient with a batch approximation:
+\begin{eqnarray}
+  \hat{U}(\thetav)       & = & - \log \pi(\thetav) - \frac{N}{n} \sum_{i=h_1}^{h_n} \log \pi(\yi | \thetav ) \\
+  \nabla\hat{U}(\thetav) & = & - \nabla \log \pi(\thetav) - \frac{N}{n} \sum_{i=h_1}^{h_n} \nabla \log \pi(\yi | \thetav ) 
+\end{eqnarray} 
+where $n$ is the batch size, and $h_i$ are indices chosen randomly without replacement from $[1,N]$ (i.e. it defined a random batch).  
+%The main motivation for these is to avoid the expensive MH correction step while maximizing the benefit of Hamiltonian dynamics.  For example, we want to take large steps but without introducing errors that cause the dynamics to fail.
+ 
+{\bf Stochastic gradient Langevin dynamics} \cite{welling2011bayesian} performs one full leap-frog step of HMC.   Starting with a half step for the momentum, the update for $\thetav$ is 
+\begin{eqnarray}
+  \rhov_t & \sim & \mathcal{N}(0,\eye_p) \\
+  \rhov_{t+\frac{1}{2}} & = & \rhov_t - \eta \nabla \hat{U}(\thetav_t) /2 \\
+  \thetav_{t+1} & = & \thetav_t + \eta \rhov_{t+\frac{1}{2}}
+\end{eqnarray}
+Tt is not necessary to include $\rhov$ in the updates since there is only one step:
+\begin{eqnarray}
+  \thetav_{t+1} & = & \thetav_t + \eta \mathcal{N}(0,\eye_p) - \eta^2 \nabla \hat{U}(\thetav_t) /2 
+\end{eqnarray}
+One of the potential drawbacks of SGLD is that the momentum term is {\em refreshed} for every update of the parameters, and since this means the parameter update only uses the current gradient approximation, it limits the benefits of using Hamiltonian dynamics.  On the other hand, this also prevents SGLD from accumulating errors in the Hamiltonian dynamics.
+
+{\bf Stochastic Gradient HMC} (SGHMC) \cite{chen2014stochastic} avoids $\rhov$ refreshment altogether.  By applying HMC directly using the stochastic approximation $\hat{U}$ and $\nabla \hat{U}$, which the authors call {\em naive SGHMC}, the variance of the gradient will introduce errors that left unaddressed will result in sampling from the incorrect target distribution.  Under the assumption that $\nabla \hat{U}(\thetav) = \nabla U(\thetav) + \mathcal{N}\lp \zerov, \varv_{\thetav}\rp$, where $\varv_{\thetav}$ is the covariance of the gradient approximation, and  updates $\rhov_{t+1} = \rhov_{t} + \Delta \rhov_{t}$ and $\thetav_{t+1} = \thetav_t + \eta \rhov_{t+1}$, the change in momenta $\Delta \rhov$ from one full step is
+ \begin{equation}
+   - \eta \lp \nabla U(\thetav) + \mathcal{N}\lp \zerov, \varv_{\thetav}\rp\rp  =  - \eta \nabla U(\thetav) + \mathcal{N}\lp \zerov, \eta^2 \varv_{\thetav}\rp  
+ \end{equation}
+By adding a friction term $\Bv$ to $\Delta \rhov$ proportional to $\varv_{\thetav}$, the correction step can be avoided
+ \begin{eqnarray}
+   \Delta \rhov & = & - \eta \Bv \rhov_t - \eta \nabla U(\thetav_t) + \mathcal{N}\lp \zerov, 2 \eta \Bv\rp 
+ \end{eqnarray}
+ where  $\Bv=\frac{1}{2}\eta \varv_{\thetav_t}$.   In practice, since we can only estimate $\Bv$ by some $\hat{\Bv}$ and can only compute $\hat{U}$, a user defined friction term $\Cv$ is used (with $\Cv - \hat{\Bv}$ is semi-positive definite).  Thus the updates used for $\Delta \rhov$ for SGHMC:
+ \begin{equation}
+   - \eta \Cv \rhov_t - \eta \nabla \hat{U}(\thetav_t) + \mathcal{N}\lp \zerov, 2 \eta (\Cv-\hat{\Bv}) \rp 
+ \end{equation}
+ In our experiments we compute an online estimate $\hat{\varv}$ and set $\Cv = c \eye_p + \hat{\varv}$.  
+ %As mentioned above, the main benefit of using SGHMC over SGLD is the ability of avoiding refreshing $\rhov$ while not accumulating Hamiltonian errors.
+ 
+ {\bf Stochastic Gradient thermostats} (SGT) \cite{ding2014bayesian} addresses the difficulty of estimating $\hat{\Bv}$ by introducing a scalar variable $\xi$ who's addition to the Hamiltonian dynamics maintains the temperature of the system constant, i.e. it acts as a (Nose-Hoovier) thermostat \cite{leimkuhler:2009}.  The update equations remain simple: initialize $\xi = \Cv$ (or $c$), then for $t=1\ldots$
+ \begin{eqnarray}
+   \rhov_{t+1} & = & \rho_t - \eta \xi_t \rhov - \eta \nabla \hat{U}(\thetav_t) + \mathcal{N}\lp \zerov, 2 \eta_t \Cv \rp \\
+   \thetav_{t+1} & = & \thetav_t + \eta \rhov_{t+1} \\
+   \xi_{t+1} & = & \xi_t + \eta \lp  \rhov_{t+1}^T \rhov_{t+1} / p - 1 \rp
+ \end{eqnarray}
+ In summary, the hyperparameters required for these algorithms are $\eta$ and $\Cv$ (for SGHMC and SGNHT only), and in practice, some way of estimating $\hat{\varv}$ for SGHMC.  
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{HAMILTONIAN ABC}\label{sec:habc}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+In the application of stochastic gradient Hamiltonian dynamics to ABC, the stochasticity of the gradient due to batch sizes is instead caused by two other factors.  The first factor, is due to the finite number of forward simulations that are used to approximate the log-likelihood function.  We will explain below how to perform ABC gradient estimates based on finite difference approximations on two log-likelihood formulations: the $\epsilon$-kernel density model and on a Gaussian conditional model, both are based on $S$ random simulations.  The second factor is due to the dimension of $D$.  For large $D$, a finite difference estimate requires $2p$ forward simulations for each random simulation, by using a further stochastic approximation to the gradient, called Simultaneous Perturbation Stochastic Approximation (SPSA) \cite{spall}, an unbiased estimate of the gradient can computed with $2q$ forward simulations, where $ \geq 1$ and usually $Q \ll D$.
+
+To begin, we define $\thetavplusd = \thetav + c \Deltavd$ and $\thetavminusd = \thetav + c \Deltavd$, where $c$ is a small positive scalar, e.g. $c=0.001$, and $\Deltavd$ is a vector of size $D$ that, for FD estimates is $1$ for entry $d$ and $0$ otherwise.  Our gradient estimate require simulating $S$ times at $\thetavplus$ and $\thetavminus$, generating sets of pseudo-data $\{ \xplussd \}$ and $\{ \xminussd \}$.  These are then plugged into the log-likelihood estimate for $\y$, which we call $\mathcal{L}$:
+\begin{eqnarray}
+  \frac{\partial \mathcal{L}(\thetav)}{\partial \thetavd} & \approx & \frac{\mathcal{L}(\thetavplusd)- \mathcal{L}(\thetavminusd)}{2c}
+\end{eqnarray}
+
+For the $\epsilon$-kernel density model
+% ,
+% \begin{eqnarray}
+%   \mathcal{L}(\thetavpmd) & = & \log \sum_{s=1}^2 \mathcal{N}( \y | f( \thetavpmd, \omega_s ), \eps^2 ) \\
+%                           & = & \log \mathcal{N}( \y | f( \thetavpmd, \omega_{m} ), \eps^2 ) + \log\lp 1 + H_d \rp \\
+%                           & \approx & \log \mathcal{N}( \y | f( \thetavpmd, \omega_{m} ), \eps^2 ) + 0
+% \end{eqnarray}
+% where we replaced the random variable $\x$ with a deterministic function $f( \thetavpmd, \omega_s )$ (i.e.  the simulator run at $\thetavpmd$ using the random state $\omega_s$, such that $\xpmd = f( \thetavpmd, \omega_s )$). In the second line we have pulled out the value from the random state $m$ which has the maximum log-likelihood (i.e. is closest to $\y$) and used $H_d$ (sum of terms $<0$ and $\ll 0$ for small $\eps$), and in the last line simplified further by assuming small $\eps$, so that the log-likelihood is dominated by a single simulation closest to $\y$.
+it is easy to show that the gradient estimate is sensitive to $\epsilon$ in this case: 
+\begin{eqnarray}
+  \frac{\partial \mathcal{L}(\thetav)}{\partial \thetavd} & \approx & \frac{1}{2c\eps^2}\lp -\frac{1}{2}(\y-\xplussd)^2 + \frac{1}{2}(\y-\xminussd)^2  \rp
+\end{eqnarray}
+So by making $\epsilon$ arbitrarily small we can make the gradient extremely sensitive to our simulations.  Intuitively, we want the gradient to be fairly stable no matter what values of $\epsilon$ we use.  To do this we will replace log-likelihood with a conditional model.
+%
+% A better way of approximating the gradient is to use a conditional model of $\pi(\x|\thetav)$, for example a conditional kernel density estimate \cite{TurnerGenLik2014} or a conditional Gaussian model \cite{wood2010statistical}.  While either approach should be adequate and both have their own limits and advantages, for this discussion we will use a Gaussian estimate.  In ABC, using a conditional Gaussian model for  $\pi(\x|\thetav)$ is called a {\em synthetic likelihood} (SL) model \cite{wood2010statistical}.  For a SL log-likelihood model, we compute estimators of the first and second moments of $\pi(\x|\thetav)$.  For Gaussian $\epsilon$-kernel, we can convolve the two densities
+% \begin{eqnarray}
+%   \mathcal{L}(\thetavpmd) & = & \log \int \mathcal{N}( \y | \x, \eps^2 ) \mathcal{N}( \x |
+%   \mu_{\thetavpm}, \sigma^2_{\thetavpm} ) d\x \\
+%                           & = & \log \mathcal{N}( \y | \mu_{\thetavpm}, \sigma^2_{\thetavpm} \eps^2 )
+% \end{eqnarray}
+We can see that $\epsilon$ now can be set very small as it now acts as a smoother for our estimate, resulting in a robust gradient.
+ 
+\subsection{Gradients in High Dimensions}
+
+%\subsection{Spall's method: SPSA}
 In the gradient-free setting, Spall \cite{spall_spsa} provides a stochastic approximate to the true gradient using only 2 forward simulations (function evaluations).  This is in contrast to multivariate finite-difference stochastic approximation FDSA \cite{kiefer1952} requiring $2p$ evaluations.  
 
 The gradient estimate is
@@ -132,49 +299,36 @@ A way of reducing the noise in the gradient is by averaging over $q$ draws of $\
 \begin{equation}
   \gradestimate{t}{\thetav_t} = \frac{1}{q} \sum_{j=1}^q \gradestimaterepeat{t}{\thetav_t}{j}
 \end{equation}
-where for each $j$ new perturbation masks are drawn.  
+where for each $j$ new perturbation masks are drawn.
+  
 
-Another variance reduction technique called the method of {\em common random numbers} (CRN) \cite{kleinman1999} sets a common seed for the random number generator (RNG) for both calls to the simulator.  This technique can remove the effect of the simulator noise in the gradient estimate, leaving on the randomness of the perturbation masks as the source of noise. Consider using SPSA instead of SGD: the CRN technique is equivalent of using the same batch of data vectors to evaluate the log-likelihood which is a sensible approach.
-
-\subsubsection{Variations}
+For ABC, the gradients we compute are stochastic because we must approximate $\pi(\x | \thetav)$ with forward simulations.  We can make the approximation arbitrarily good by running more simulations, but this is often unnecessary for sampling, because we can make use of the uncertainty in our current approximation to decide if our sample is correct or not (cite UAI2014?).  
 
 \begin{itemize}
-\item Varying $c_q$: use a different per repeat.  Seems to converge faster.  What is the correct noise process?  Right now trying this: flip coin, if heads perturb $c *= 1+U(0,1)$, else perturb $c /= 1 + U(0,1)$. 
+  \item Log likelihood is much noisier in  1, and the 2 there are good reasons why this is a better choice: is no longer depends on $epsilon$ (as the true gradient shouldn't), convolving the conditional density is the right thing to do, if possible (though it might not be necessary to perform ABC)
+  \item In both cases, we rewrite the expression conditioning on a set of random seeds omega.  Explain the reason for this.  By observing the simulation at different theta but same seeds, we can eliminate much of the noise in the markov chain.  By treating omega as part of the state, we can smoothly move along noiseless outputs for several iterations and then step.
 \end{itemize}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{LANGEVIN DYNAMICS} \label{ld}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{STOCHASTIC-GRADIENT LD} \label{sgld}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Stochastic ABC Gradients}
+For low-dimensional problems a finite difference (FD) approximation to $\nabla U$.  For each dimension $p$, forward simulate for each random seed twice at plus $c$ and minus $c$ (only along dimension $p$): $x_{\pm}^{(s)} \sim \pi( \x | \thetav \pm c \Delta_p, \omega_s)$.  These simulations are then plugged into the appropriate estimator (logsumsexp or SL).  $\hat{U}_{K_{\eps}}$:
 \begin{eqnarray}
-  h & = & \frac{N}{n} \sum_{i=1}^n \nabla \log p(\bx_i | \thetav)- \sum_{i=1}^N \nabla \log p(\bx_i | \thetav ) \\
-    & = & \frac{N}{n} \sum_{i=1}^n s_i \\
-  s_i & = & \nabla \log p(\bx_i | \thetav) + \frac{1}{N} \nabla p(\thetav) \\
-  \text{V}(h) & = & \frac{N^2}{n^2} \sum_{i=1}^n \text{Var}(s_i) \\
-                & = & \frac{N^2}{n^2} \sum_{i=1}^n \frac{1}{n} \lp \sum_{j=1} (s_i - \bar{s})^2 \rp \\
-                & = & \frac{N^2}{n^2} \sum_{i=1}^n V_s \\
-                & = & \frac{N^2}{n^2} n V_s \\
-                & = & \frac{N^2}{n} V_s 
-  %\text{Var}(\thetav) & = & \frac{\epsilon^2}{4}\text{Var}(h) + \epsilon \\
-  %       \frac{\epsilon^2}{4}\text{Var}(h) & << & \epsilon \\
-  %       \frac{\epsilon N^2}{4 n} V_s & << & 1       
-\end{eqnarray}
+  - \log \pi(\thetav \pm c \Delta_p) - \log \sum_s \pi_{\eps}(\y | f( \thetav \pm c \Delta_p, \omega_s ) )
+\end{eqnarray}   
+or $\hat{U}_{SL}$
 \begin{eqnarray}
-  \text{Var}(\thetav) & = & \frac{\epsilon^2}{4}\text{Var}(h) + \epsilon \\
-         \frac{\epsilon^2}{4}\text{Var}(h) & << & \epsilon \\
-         \frac{\epsilon N^2}{4 n} V_s & << & 1       
+  - \log \pi(\thetav \pm c \Delta_p) - \log \mathcal{N}(\y | \mu_{\thetav \pm c \Delta_p}, \sigma^2_{\thetav \pm c \Delta_p} + \eps^2 )
 \end{eqnarray}
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{SGLD-ABC} \label{sgld}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{eqnarray}
+  \hat{U}(\thetav)       & = & - \log \pi(\thetav) - \log \pi_{\eps}(\y | \thetav ) \\
+  \nabla\hat{U}(\thetav) & = & - \nabla \log \pi(\thetav) - \frac{N}{n} \sum_{i=h_1}^{h_n} \nabla \log \pi(\yi | \thetav ) 
+\end{eqnarray} 
 
-\subsection{ABC Cost Function}
+\subsection{Common Random Numbers}
+
+[CITE NEAL How to view an MCMC...]
+Another variance reduction technique called the method of {\em common random numbers} (CRN) \cite{kleinman1999} sets a common seed for the random number generator (RNG) for both calls to the simulator.  This technique can remove the effect of the simulator noise in the gradient estimate, leaving on the randomness of the perturbation masks as the source of noise. Consider using SPSA instead of SGD: the CRN technique is equivalent of using the same batch of data vectors to evaluate the log-likelihood which is a sensible approach.
 
 The ABC likelihood is proportional to the convolution between a kernel around the observation statistics $\y$ and the generator of pseudo-statistics $\x$, i.e. the simulator.  Since pseudo-statistics can only be generated, we resort to a Monte Carlo estimate for the ABC likelihood based on $S$ draws from the simulator using the same parameter vector $\thetav$ but different random seeds:
 \begin{eqnarray}
@@ -186,164 +340,102 @@ where $\x^{(s)} = \pi\lp \x | \thetav, \omega_s \rp$.  Note we have passed a uni
   \pi\lp \y | \thetav \rp & \approx & \frac{1}{S} \sum_{s=1}^S \pi_{\epsvec}\lp \y | f\lp \thetav, \omega_s \rp \rp
 \end{eqnarray}
 
-For optimization purposes we can search for the maximum a posteriori (MAP) estimator $\hat{\thetav}$ using the log-joint distribution $\hat{\thetav} = \argmax_{\thetav} \mathcal{MAP}$, where $\mathcal{MAP}$ is
-\begin{eqnarray}
-  \mathcal{LJ} &    =    & \log \pi(\thetav) + \log \pi\lp \y | \thetav \rp \\
-                & \approx &\log \pi(\thetav) + \log \sum_{s=1}^S \pi_{\epsvec}\lp \y | f\lp \thetav, \omega_s \rp \rp - \log S
-\end{eqnarray} 
-we can also maximize the lower-bound of $\mathcal{LJ} \geq \mathcal{LB}$, where 
-\begin{eqnarray}
-  \mathcal{LB} & \approx &\log \pi(\thetav) + \sum_{s=1}^S \log  \pi_{\epsvec}\lp \y | f\lp \thetav, \omega_s \rp \rp
-\end{eqnarray} 
-which will be more convenient for optimization for typical kernels (i.e. $\pi_{\epsilon}$ is Gaussian).
+% \subsection{Conditional Density Estimators}
+% [TODO: TAKEN FROM POPE]  When the simulator is fast and stochastic, it can be beneficial to the inference procedure to build a local, conditional model of the distribution $\pi(\y|\thetav)$ using $S$ simulator responses in $\yone, \ldots, \yS \overset{\simulator}{\sim} \pi( \y | \thetav)$.
+% %
+% The simplest local response model is the \emph{conditional Gaussian}, an approach called {\em synthetic likelihood} in ABC \cite{wood2010statistical}.   It computes estimators of the first and second moments of the responses and uses the Gaussian distribution to analytically compute the likelihood (thus providing an alternative to kernel ABC). For our algorithms, this allows the direct computation of the CDF:
+% \begin{eqnarray}
+%  && \muhattheta  =  \frac{1}{S} \sum_{s=1}^{S} \y_s ~~~~~~~~~~~
+%  \hat{\Sigma}_{\thetav}  =  \frac{1}{S-1} \sum_{s=1}^{S} \lp \ys - \muhattheta \rp \lp \ys - \muhattheta \rp^T\\
+%  &&\F_{\y | \thetav}(\ystar; \muhattheta,  \hat{\Sigma}_{\thetav})  =  \int_{-\infty}^{\ystar} \mathcal{N}\lp \y | \muhattheta,  \hat{\Sigma}_{\thetav} \rp d \y
+% \end{eqnarray}
+% % \begin{eqnarray}
+% %   &&\F_{\y | \thetav}(\ystar; \muhattheta,  \hat{\Sigma}_{\thetav})  =  \int_{-\infty}^{\ystar} \mathcal{N}\lp \y | \muhattheta,  \hat{\Sigma}_{\thetav} \rp d \y
+% % \end{eqnarray}
+% where $\muhattheta$ and $\hat{\Sigma}_{\thetav}$ are computed from the $S$ simulations.  In our experiments we  often use a factorized model: $\mathcal{N}(\y | \muhattheta,\hat{\Sigma}_{\thetav}) \approx \prod_{j=1}^J \mathcal{N}( y_j | \muhatthetaj,  \sigmahatthetaj)$, resulting in a factorized product over CDFs as well.
+% Modeling the response by only the first two moments may be inadequate due to multi-modality, asymmetric noise, etc.   For such cases a \emph{conditional KDE} (kernel density estimate) response model can by used.  In \cite{TurnerGenLik2014} this approach is shown to be superior to conditional Gaussians for certain computational psychology models.  Note that for Gaussian kernels the conditional KDE is very similar to kernel ABC, but has additional flexibility of adaptively choosing bandwidths (rather than the fixed $\epsvec$ in kernel ABC).
+% [TODO: END TAKEN FROM POPE]
 
-The simplest optimization is to set the objective function  $C$ to be $-\mathcal{LJ}$ or $-\mathcal{LB}$ and compute stochastic gradients using 2SPSA with $q$ repeats (negative log-likelihood because we will assume minimization):
-\begin{eqnarray}
-  \frac{\partial C}{\partial \thetav} & = & \frac{1}{q} \sum_{j=1}^{q} \frac{C\lp \thetav + c \Delta_j\rp - C{\lp\thetav - c \Delta_j\rp}}{2 c \Delta_j}
-\end{eqnarray}
-or 1SPSA
-\begin{eqnarray}
-  \frac{\partial C}{\partial \thetav} & = & \frac{1}{q} \sum_{j=1}^{q}  \frac{C\lp \thetav + c \Delta_j\rp - C(\thetav)}{c \Delta_j}
-\end{eqnarray}
-which is less accurate but is less computation if $C(\thetav)$ is computed at each step (TODO: possible algorithm).  TODO: rewrite $\frac{\partial C}{\partial \thetav}$ as $\hat{g}$ or similar.
 
-\subsection{Special Case: Gaussian Kernels}
-When the kernel is known we can use the chain rule to compute the gradients with the first part from the kernel and the second from the variation of the simulator pseudo-statistics, whose gradient can be estimated using SPSA.  Expanding the likelihood over $J$ statistics, the lower bound on the loglikelihood becomes:
-\begin{eqnarray}
-  \hat{L} & = & \sum_s \log \pi_{\epsilon}\lp \y | f(\thetav, \omega_s)\rp \\
-          & = & \sum_s \log \prod_{j=1}^J \pi_{\epsilon_j}\lp y_j | f_j(\thetav, \omega_s)\rp \\
-          & = & \sum_s \sum_j \log  \pi_{\epsilon_j}\lp y_j | f_j(\thetav, \omega_s)\rp \\
-          & = & \sum_s \sum_j -\frac{1}{2} \frac{\lp y_j - f_j(\thetav, \omega_s)\rp^2}{\epsilon_j^2} - Z_j \\
-\end{eqnarray}
+  
 
-The gradient:
-\begin{eqnarray} 
-  \nabla \hat{L} & = & \sum_s \sum_j \frac{\lp y_j - f_j(\thetav, \omega_s)\rp}{\epsilon_j^2} \cdot \frac{\partial f_j(\thetav, \omega_s)}{\partial \thetav} \\
-                 & = & \sum_s \sum_j e_{js} \nabla_{js}
-\end{eqnarray}
-The first part $e_{js}$ is analytic, the second part $\nabla_{js}$ requires estimation by 2SPSA:
-\begin{eqnarray} 
-  \hat{ \nabla }_{js}  & = & \frac{1}{q} \sum_{r=1}^q \frac{f_j(\thetav + c \Delta_r , \omega_s) - f_j(\thetav - c \Delta_r , \omega_s)}{2 c \Delta_r}
-\end{eqnarray}
-or 1SPSA
-\begin{eqnarray} 
-  \hat{ \nabla }_{js} & = & \frac{1}{q} \sum_{r=1}^q \frac{f_j(\thetav + c \Delta_r , \omega_s) - f_j(\thetav, \omega_s)}{c \Delta_r}
-\end{eqnarray}
-the benefit of 1SPSA in this case is that the first gradients  $e_{js}$ can be computed from $f_j(\thetav, \omega_s)$.
+\subsection{Algorithms}
 
-\subsection{SGD, AdaGrad, RMSProp, AdaM}
 
-With our stochastic gradient in hand, we can make use of robust stochastic gradient rules, including recent advances from machine learning.  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Demonstration}\label{sec:toy}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+[FROM UAI] In this illustrative problem we infer the rate of an exponential distribution under a gamma prior with shape $\alpha$ and rate $\beta$, having $N$ observations at the true rate $\theta^{\star}$; this is the {\em exponential example} in \cite{turner2012tutorial}.  Let $\w$ be a vector of $N$ draws from an exponential distribution, i.e. $w_n \sim \expdist(\theta)$.  The posterior is a gamma distribution with shape $\alpha+N$ and rate $\beta + \sum w_n$.  To use this problem with ABC, we use the exponential draws as the simulator and the mean of $\w$ as the statistic $y$ and assume that $N$ is known.  The inference problem is therefore to sample from $p( \theta | y, \alpha, \beta, N )$.
 
-\subsubsection{SGD}
-The basic update rule is at time $t$ for minimization is
-\begin{eqnarray}
-  \Delta\thetav & = & - \alpha_t \hat{g_t}
-\end{eqnarray} 
-with conditions $\sum_{t=1}^{\infty} \alpha_t = \infty$ and $\sum_{t=1}^{\infty} \alpha_t^2 < \infty$ required for convergence.
-An additional momentum parameter $\beta_1$ can be added to improve convergence
-\begin{eqnarray}
-  \gmom & = & \beta_1 \gmom + (1-\beta_1)*\hat{g_t} \\
-  \Delta\thetav & = & - \alpha_t \gmom
-\end{eqnarray}
+\subsection{First order CRNs}
+Using same seed in a gradient estimate at time $t$ (versus not using them).  This is makes sense if we compare to SG-data where a single batch is used for computing the gradient.  If a FD method was used, we would use the same batch.
 
-\subsubsection{AdaGrad}
-AdaGrad uses the total cumulative element-wise square of the gradients to automatically both decrease $\alpha_t$ and scale the learning rates for each dimension: 
-\begin{eqnarray}
-  \gmom    & = & \beta_1 \gmom + (1-\beta_1)*\hat{g_t} \\
-  \gsquare & = & \sum_{t'=1}^t \hat{g_t}^2 \\
-  \Delta\thetav & = & - \alpha_t \gmom / \sqrt{\gsquare}
-\end{eqnarray}
+\subsection{Second order CRNs}
+Using same seed in a gradient estimate at multiple time steps (versus not changing them -- the previous example).  Analogous to keeping the same batch for consecutive steps in SG-data.
 
-\subsubsection{RMSProp}
-\begin{eqnarray}
-  \gmom    & = & \beta_1 \gmom + (1-\beta_1)*\hat{g_t} \\
-  \gsquare & = & \beta_2 \gsquare + (1-\beta_2)*\hat{g_t}^2 \\
-  \Delta\thetav & = & - \alpha_t \gmom / \sqrt{\gsquare}
-\end{eqnarray}
-
-\subsubsection{AdaM}
-\begin{eqnarray}
-  \gmom    & = & \beta_1 \gmom + (1-\beta_1)*\hat{g_t} \\
-  \gsquare & = & \beta_2 \gsquare + (1-\beta_2)*\hat{g_t}^2 \\
-  \gamma & = & \frac{ \sqrt{1-(1-\beta_2)^t}}{(1-(1-\beta_1)^t)} \\
-  \Delta\thetav & = & - \alpha_t \gamma \gmom / \sqrt{\gsquare}
-\end{eqnarray}
-
-\section{Applying SGLD to ABC}
-
-There are two main sources of randomness in the ABC gradient computation: the random perturbation mask and the random seed of the simulator model, which controls the simulator noise.  This noise can be eliminated by using common random numbers \cite{spall-crn}.  On the other hand, it is not clear that this is the best strategy, as the noise from the masks at a fixed seed may be higher than   
-
-\begin{eqnarray}
-  V_{\gradestimaterepeat{t}{\thetav_t}{j}} & = & \frac{1}{q-1} \sum_{j=1}^q (\gradestimaterepeat{t}{\thetav_t}{j} - \gradestimate{t}{\thetav_t})^2 \\
-  V_{\gradestimate{t}{\thetav_t}} & = & \frac{1}{q-1} V_{\gradestimaterepeat{t}{\thetav_t}{j}} \\
-  \frac{\epsilon^2}{4 }V_{\gradestimate{t}{\thetav_t}} & = & \frac{\epsilon^2}{4 q }V_{\gradestimaterepeat{t}{\thetav_t}{j}} \\
-                                                       & << & \epsilon \\
-                    \frac{\epsilon}{4 (q-1) }V_{\gradestimaterepeat{t}{\thetav_t}{j}}  & << & 1                                  
-\end{eqnarray}
-
-Check for $g(\thetav) + h(\thetav) + \eta$ that $h(\thetav) + \eta \approx \eta$
-
-Also $\theta_{t+1} = \theta_t + \frac{\epsilon}{2}\gradestimate{t}{\thetav_t} + \sqrt{\epsilon}\mathcal{N}(0,1)$
-
-\subsection{Statistical Tests for Gradients}
-
-From Byrd:
-\begin{eqnarray}
-\frac{||V_{\gradestimaterepeat{t}{\thetav_t}{j}} ||_1}{q} & \leq r^2 || \hat{g}_t ||_2^2 \\
-\hat{q} & = & \frac{||V_{\gradestimaterepeat{t}{\thetav_t}{j}} ||_1}{r^2 || \hat{g}_t ||_2^2}
-\end{eqnarray}
-
-TODO:
+\subsection{Comparing Gradient Estimates with SL}
 \begin{itemize}
-  \item Check that $q$ gradients are normal.  Especially as $q$ increases.
-  \item Merge Byrd's test for $\hat{q}$ and condition on SGLD-ABC.
-  \item Variance check for increasing $q$ can also be used to stop optimization since the variance is less than the noise in the gradients.
+  \item Can estimate ABC posterior by CLT of Gammas (sum of exponential).  For large S, the variance of the SL approximates the ``true'' CLT approximation.  Thus we can set $\epsilon$ much smaller for the SL case.  The kernel logsumexp suffers when $\epsilon$ is small, using only the closest simulation to $\y$.  Instead the SL estimates a density around the simulations and the likelihood is less sensitive to $\epsilon$.
+  \item Better tolerance to low $\epsilon$ using SL.
 \end{itemize}
 
+\subsection{Using variance of gradients in SGHMC}
+Compute online $\hat{B}$ then fix.
+
+\subsection{Visualizing Noise from Gradient versus Injected Noise}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{EXPERIMENTS} \label{experiments}
+\section{Experiments}\label{sec:experiments}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Logistic Regression with Stochastic Gradients}
+\subsection{Blowfly}
+[FROM UAI] Adult blowfly populations exhibit dynamic behavior for which several competing population models exist.  In this experiment, we use observational data and a simulation model from Wood \cite{wood2010statistical}, based on their improvement upon previous population dynamics theory.  Population dynamics are modeled using (discretized) differential equations that can produce chaotic behavior for some parameter settings.  An example blowfly replicate series is shown in Figure~\ref{fig:blowflyexamples}, along with  times-series generated by a sample from $\p(\thetav|\y)$ using GPS-ABC.
+ 
 
-\subsection{Optimization of Blowfly Dynamics}
+In \cite{wood2010statistical} there are several explanations of the population dynamics, corresponding to different simulations and parameters.  We concentrate on the equation (1) in section 1.2.3 of the supplementary information, considered ``a better alternative model" by the author.  The population dynamics equation generates  $N_1, \ldots, N_T$ using the following update rule:
+\begin{equation}
+N_{t+1} = P N_{t-\tau} \exp(-N_{t-\tau}/N_0) e_t + N_t \exp(-\delta \epsilon_t) \nonumber
+\end{equation}
+where $e_t \sim  \mathcal{G}( 1/{\sigma_p^2},1/{\sigma_p^2})$ and $\epsilon_t 
+ \sim  \mathcal{G}( 1/{\sigma_d^2},1/{\sigma_d^2})$  
+are sources of noise, and $\tau$ is an integer (not to be confused with the $\tau$ used as the MH acceptance threshold in our algorithms).  In total, there are 6 parameters $\theta = \{ \log P, \log \delta, \log N_0, \log \sigma_d, \log \sigma_p, \tau\}$.  See \cite{wood2010statistical} for further details about the significance of the parameters.  We put Gaussian priors over all the parameters (with Gaussian proposal distributions), except for $\tau$ which has a Poisson prior (and a left/right increment proposal). Time-series generated with parameters from this prior distribution produce extremely varied results, some are chaotic, some are degenerate, etc.  Modeling this simulator is {\em very} challenging.
 
-\subsubsection{Using AdaM}
+As with any ABC problem the choice of statistics is important as it directly affects the quality of the results.   It is also non-trivial and requires careful thought and sometimes trial and error.   In total there are 10 statistics: the log of the mean of all $25\%$ quantiles of $N/1000$ (4 statistics), the mean of the $25\%$ quantiles of the first-order differences of $N/1000$ (4 statistics), and the maximal peaks of smoothed $N$, with 2 different thresholds (2 statistics).    With these statistics it is possible to reproduce time-series that appear similar to the observations.  Note that these statistics are different from Wood's, but they capture similar time-series features and are sufficient to produce credible population dynamics. [END FROM UAI]
 
-\begin{figure}[h]
-\vspace{1in}
-\includegraphics[width=0.45\columnwidth]{./images/blowfly_adam_post_series.png}
-\includegraphics[width=0.45\columnwidth]{./images/blowfly_adam_post_series_sgld5k.png}
-\includegraphics[width=0.45\columnwidth]{./images/blowfly_adam_post.png}
-\includegraphics[width=0.45\columnwidth]{./images/blowfly_adam_post_sgld5k.png}
-\includegraphics[width=0.45\columnwidth]{./images/blowfly_adam_postpred_series.png}
-\includegraphics[width=0.45\columnwidth]{./images/blowfly_adam_postpred_series_sgld5k.png}
-\includegraphics[width=0.45\columnwidth]{./images/blowfly_adam_postpred.png}
-\includegraphics[width=0.45\columnwidth]{./images/blowfly_adam_postpred_sgld5k.png}
-\includegraphics[width=0.45\columnwidth]{./images/blowfly_adam_noise.png}
-\includegraphics[width=0.45\columnwidth]{./images/blowfly_adam_noise_sgld5k.png}
-\caption{Optimizing Blowfly using $q=5$, $\epsilon = 0.01$, $\beta_1=0.75$,$\beta_2=0.9$,$\alpha=0.1$ and $c=1$.  Left: Optimization using AdaM, Right: ``SGLD'' with estimated noise. }
-\end{figure}
 
-\subsubsection{Using AdaM with ``SGLD" injected noise}
+\subsection{Bayesian Autoencoders}
+We perform Bayesian inference on an autoencoder neural network using MNIST images as observations.  We apply two inference algorithms: SGNHT and HABC.  For SGNHT, we use the known gradient and for HABC we apply 2SPSA.  After 1000 iterations we collect parameter vectors every 100 iterations for a total of 100 sets. (Do we use SGHMC to estimate Bhat in first 1000 iterations?).  Use same batches at each iteration for SGNHT and HABC? 
 
-\subsection{Likelihood-free Inference of Blowfly Dynamics}
+results: convergence of training error (batches), convergence in test error using parameters collected (record nbr of forward or backward passes required), show mean and variance of filters (how?), compare with using the last parameter sample only (stochastic optimization).
 
-\subsection{Other Useful ABC problem}
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{DISCUSSION} \label{discussion}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% \begin{itemize}
+%   \item
+%   \item
+% \end{itemize}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{CONCLUSION} \label{conclusion}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+\begin{itemize}
+  \item New set of ABC algorithms for efficient exploration of posterior distribution.
+  \item Key: opens the door to high-dimensional ABC inference.
+\end{itemize}
+
+A further complication, which we do not address on this paper, is the forward simulation might be, and for many interesting problems is, expensive.  We would therefore prefer to resort to some sort of surrogate modeling \cite{Meeds2014GpsUai,wilkinson:2014, michael} to avoid simulations whenever possible. We address this scenario in Section~\ref{future}.  Shown for relatively fast simulators.  Extensions to surrogates with GPS (Meeds2014GpsUai, rasmussen:2003, wilkinson:2014) can use derivative of GP for likelihood as GP of gradient.  These could be matched by occasional gradient estimates (Osborne).
+
 \subsubsection*{References}
-\newpage
 {
-\bibliographystyle{abcsgld}
+\bibliographystyle{icml2014}
+\bibliography{abcsgld}
 }
 
 \end{document}

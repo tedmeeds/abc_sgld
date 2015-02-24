@@ -5,14 +5,15 @@ from scipy import stats as spstats
 import pylab as pp
 
 problem_params = default_params()
-problem_params["epsilon"] = 1.0
+
 problem_params["N"] = 5
 problem_params["q_stddev"] = 0.5
 problem_params["theta_star"]      = 0.1
-#problem_params["alpha"]           = 1.0
-#problem_params["beta"]            = 1.0
-problem_params["alpha"]           = 3.75
-problem_params["beta"]            = 1.01
+problem_params["epsilon"] = 0.1*np.sqrt( 1.0 / (problem_params["N"]*problem_params["theta_star"]**2) )
+problem_params["alpha"]           = 1.0
+problem_params["beta"]            = 1.0
+#problem_params["alpha"]           = 3.75
+#problem_params["beta"]            = 1.01
 
 exp_problem = ExponentialProblem( problem_params, force_init = True )
 
@@ -98,7 +99,7 @@ def run_sgld( problem, T, h, A, c, theta=None, x = None, verbose_rate = 100, use
   if use_omega is False:
     omega = 0
   else:
-    omega = np.random.randint(T)
+    omega = 10**6
     
   alpha = 0.0
   OMEGAS = [omega]
@@ -128,9 +129,11 @@ def run_sgld( problem, T, h, A, c, theta=None, x = None, verbose_rate = 100, use
     p = np.random.randn()
     current_p = p
       
-    true_grad = problem.true_abc_gradient( theta, true_gradients )
+    #true_grad = problem.true_abc_gradient( theta, true_gradients )
+    true_grad = problem.true_gradient( theta, true_gradients )
     
-    two_side_grad_U = problem.two_sided_gradient( theta, x, omega, c, two_gradients, S )
+    #two_side_grad_U = problem.two_sided_gradient( theta, x, omega, c, two_gradients, S )
+    two_side_grad_U = problem.two_sided_sl_gradient( theta, x, omega, c, two_gradients, S )
     #one_side_grad_U = problem.one_sided_gradient( theta, x, omega, c, one_gradients )
     
     # divide by theta to transform var to 
@@ -226,7 +229,8 @@ def run_sghmc( problem, T, h, A, c, theta=None, x = None, verbose_rate = 100, us
       omega = t
     #grad_U = problem.one_sided_gradient( theta, x, omega, c )
     true_grad = problem.true_abc_gradient( theta, true_gradients )
-    grad_U = problem.two_sided_gradient( theta, x, omega, c, two_gradients, S )
+    #grad_U = problem.two_sided_gradient( theta, x, omega, c, two_gradients, S )
+    grad_U = problem.two_sided_sl_gradient( theta, x, omega, c, two_gradients, S )
     #grad_U = true_grad
     
     grads[t] = grad_U
@@ -306,7 +310,8 @@ def run_thermostats( problem, T, h, A, c, theta=None, x = None, verbose_rate = 1
       omega = t
     #grad_U = problem.one_sided_gradient( theta, x, omega, c )
     true_grad = problem.true_abc_gradient( theta, true_gradients )
-    grad_U = problem.two_sided_gradient( theta, x, omega, c, two_gradients, S )
+    grad_U = problem.two_sided_sl_gradient( theta, x, omega, c, two_gradients, S )
+    #grad_U = problem.two_sided_gradient( theta, x, omega, c, two_gradients, S )
     #grad_U = true_grad
     # divide by theta to transform var to 
     #grad_U *= theta
@@ -584,44 +589,25 @@ class generate_exponential( object ):
     theta=theta[0]
     x = 1.0/theta
     f = self.loglike_x(x)
-    #theta_minus = max(0.01,theta-c)
-    #theta_plus = theta_minus + 2*c
-    cs = [0.001,0.01,0.1]
     
-    plusXs = []
-    minusXs = []
-    for s in range(S):
-      #state = np.random.get_state()
-      c = cs[np.random.randint(len(cs))]
-      c = 0.001 + (0.01-0.001)*np.random.rand()
-      #c = x/100.0
-      c=0.001
-      theta_minus = max(0.01,theta-c)
-      theta_plus = theta_minus + 2*c
+    c=0.001
+    theta_minus = max(0.01,theta-c)
+    theta_plus = theta_minus + 2*c
       
-      x_plus  = 1.0/theta_plus
-      x_minus = 1.0/theta_minus
-      
-      plusXs.append( x_plus )
-      minusXs.append( x_minus )
-    plusXs=np.squeeze(np.array(plusXs))
-    minusXs=np.squeeze(np.array(minusXs))
-    x_plus  = plusXs.mean()
-    x_minus = minusXs.mean()
+    mu_plus  = 1.0/theta_plus
+    mu_minus = 1.0/theta_minus
     
-    f_plus = logsumexp( self.loglike_x(plusXs) ) - np.log(S)
-    f_minus = logsumexp( self.loglike_x(minusXs) ) - np.log(S)
-    #pdb.set_trace()
-    #
-    #grad1 = exact_grad*(x_plus-x_minus)/(theta_plus-theta_minus) #+ (self.p.alpha-1)/theta - self.p.beta
-    grad = (f_plus-f_minus)/(theta_plus-theta_minus) + ( (self.p.alpha-1)/max(0.01,theta) - self.p.beta )
+    var_plus  = 1.0/(problem_params["N"]*theta_plus*theta_plus)
+    var_minus = 1.0/(problem_params["N"]*theta_minus*theta_minus)
     
-    #grad = (self.p.alpha+self.p.N-1)/theta - (self.p.beta+self.p.obs_sum)
-    # if grad < 0:
-    #   grad = max(np.array([-15]),grad)
-    # else:
-    #   grad = min(np.array([15]),grad)
-    gradients.append( np.squeeze( np.array([grad, theta, x,f, theta_plus, x_plus,f_plus,theta_minus, x_minus,f_minus])) )
+    Lplus  = spstats.norm( mu_plus, np.sqrt(var_plus+self.p.epsilon**2) )
+    Lminus = spstats.norm( mu_minus, np.sqrt(var_minus+self.p.epsilon**2) )
+    
+    f_plus  = Lplus.logpdf( self.y )
+    f_minus  = Lminus.logpdf( self.y )
+    grad = (f_plus-f_minus)/(theta_plus-theta_minus) + (self.p.alpha-1)/theta - self.p.beta
+    
+    gradients.append( np.squeeze( np.array([grad, theta, x,f, theta_plus, mu_plus,f_plus,theta_minus, mu_minus,f_minus])) )
     return -grad 
         
   def one_sided_gradient( self, theta, x, omega, c, gradients ):
@@ -711,7 +697,7 @@ class generate_exponential( object ):
     #pdb.set_trace()
     #
     #grad = exact_grad*(x_plus-x_minus)/(theta_plus-theta_minus) + (self.p.alpha-1)/theta - self.p.beta
-    grad = (f_plus-f_minus)/(theta_plus-theta_minus) + (self.p.alpha-1)/max(0.01,theta) - self.p.beta
+    grad = (f_plus-f_minus)/(theta_plus-theta_minus) + (self.p.alpha-1)/theta - self.p.beta
     #grad1=grad
     # if grad < 0:
     #   grad = max(np.array([-50]),grad)
@@ -742,6 +728,54 @@ class generate_exponential( object ):
     gradients.append( np.squeeze( np.array([grad, theta, x,f, theta_plus, x_plus,f_plus,theta_minus, x_minus,f_minus])) )
     return -grad
     
+  def two_sided_sl_gradient( self, theta, x, omega, c, gradients, S):
+    #print "S ",S
+    exact_grad = ( self.y-x )/self.p.epsilon**2
+    log_theta = np.log(theta)
+    f = self.loglike_x(x)
+    state = np.random.get_state()
+    
+     #np.exp( log_theta + c )
+    theta_minus = max(0.01,theta-c)
+    theta_plus = theta_minus + 2*c
+    cs = [0.001,0.01,0.1]
+    c0=c
+    plusXs = []
+    minusXs = []
+    for s in range(S):
+      state = np.random.get_state()
+      c = cs[np.random.randint(len(cs))]
+      c = 0.01 #+ (0.01-0.005)*np.random.rand()
+      #c = x/100.0
+      theta_minus = max(0.01,theta-c)
+      theta_plus = theta_minus + 2*c
+      
+      x_plus = self.simulate( theta_plus, seed=omega+s ) #omega+s+1000 )
+      x_minus = self.simulate( theta_minus, seed=omega+s ) #omega+s+1000 )
+      np.random.randn()
+      
+      plusXs.append( x_plus )
+      minusXs.append( x_minus )
+    plusXs=np.squeeze(np.array(plusXs))
+    minusXs=np.squeeze(np.array(minusXs))
+    x_plus  = plusXs.mean()
+    x_minus = minusXs.mean()
+    
+    mu_plus  = plusXs.mean()
+    mu_minus = minusXs.mean()
+    
+    var_plus  = np.var(plusXs,ddof=0)
+    var_minus = np.var(minusXs,ddof=0)
+    
+    Lplus  = spstats.norm( mu_plus, np.sqrt(var_plus+self.p.epsilon**2) )
+    Lminus = spstats.norm( mu_minus, np.sqrt(var_minus+self.p.epsilon**2) )
+    
+    f_plus  = Lplus.logpdf( self.y )
+    f_minus = Lminus.logpdf( self.y )
+    
+    grad = (f_plus-f_minus)/(theta_plus-theta_minus) + (self.p.alpha-1)/theta - self.p.beta
+    gradients.append( np.squeeze( np.array([grad, theta, x,f, theta_plus, x_plus,f_plus,theta_minus, x_minus,f_minus])) )
+    return -grad    
     
   def posterior( self, thetas ):
     return np.exp( self.p.true_posterior_logpdf_func( thetas) )
@@ -827,9 +861,9 @@ class generate_exponential( object ):
       
 if __name__ == "__main__":
   pp.close('all')
-  T             = 15000
+  T             = 50000
   A = 5.01
-  h = 0.002
+  h = 0.005
   #h = 0.0005
   c = 0.001
   
@@ -841,10 +875,10 @@ if __name__ == "__main__":
   #THETA,X,LL,OMEGAS = run_true_sgld( problem, T, h, A, c, theta=np.array([0.1]), verbose_rate=1000, use_omega = False  )
   #THETA,X,LL,OMEGAS = run_true_thermostats( problem, T, h, A, c, theta=np.array([0.1]), verbose_rate=1000, use_omega = False  )
   #THETA,X,LL,OMEGAS = run_true_rmsprop( problem, T, h, A, c, theta=np.array([0.1]), verbose_rate=1000, use_omega = False  )
-  #THETA,X,LL,OMEGAS, grads = run_sgld( problem, T, h, A, c, theta=np.array([0.2]), verbose_rate=1000, use_omega = True, S = 2  )
-  #THETA,X,LL,OMEGAS, grads = run_sghmc( problem, T, h, A, c, theta=np.array([0.2]), verbose_rate=1000, use_omega = True, S=2  )
+  #THETA,X,LL,OMEGAS, grads = run_sgld( problem, T, h, A, c, theta=np.array([0.2]), verbose_rate=1000, use_omega = True, S = 20  )
+  #THETA,X,LL,OMEGAS, grads = run_sghmc( problem, T, h, A, c, theta=np.array([0.2]), verbose_rate=1000, use_omega = True, S=5  )
   #THETA,X,LL,OMEGAS = run_mcmc( problem, T, theta=np.array([0.5]), verbose_rate=1000, use_omega = True  )
-  THETA,X,LL,OMEGAS, grads = run_thermostats( problem, T, h, A, c, theta=np.array([0.2]), verbose_rate=1000, use_omega = True, S=2  )
+  THETA,X,LL,OMEGAS, grads = run_thermostats( problem, T, h, A, c, theta=np.array([0.2]), verbose_rate=1000, use_omega = True, S=5  )
   
   alpha=0.5
   alphav=0.9
@@ -883,7 +917,7 @@ if __name__ == "__main__":
   pp.clf()
   pp.subplot( 2,2,1)
   pp.plot( theta_range, problem.posterior.pdf(theta_range), 'k--', lw =2 )
-  pp.hist( THETA[1000:],20, normed=True, alpha=0.5)
+  pp.hist( THETA[1000:],40, normed=True, alpha=0.5)
   pp.title( "Posterior")
   pp.ylabel( "p(theta)")
   pp.xlabel( "theta")
@@ -893,6 +927,13 @@ if __name__ == "__main__":
   pp.hlines( problem.p.obs_statistics, 0, max( THETA[-5000:]),lw=4,alpha=0.5)
   pp.fill_between( [0, max( THETA[-5000:])], problem.y-problem.p.epsilon, problem.y+problem.p.epsilon, alpha=0.5,color='r')
   pp.fill_between( [0, max( THETA[-5000:])], problem.y-2*problem.p.epsilon, problem.y+2*problem.p.epsilon, alpha=0.25,color='r')
+  
+  theta_range = np.linspace( min( THETA[-5000:]), max( THETA[-5000:]), 200 )
+  mn = 1.0/theta_range
+  sd = np.sqrt( 1.0/(problem.p.N*theta_range**2) )
+  pp.fill_between( theta_range, mn-sd, mn+sd, alpha=0.5,color='g')
+  pp.fill_between( theta_range, mn-2*sd, mn+2*sd, alpha=0.25,color='k')
+  
   pp.xlabel( "theta")
   pp.ylabel( "x")
 

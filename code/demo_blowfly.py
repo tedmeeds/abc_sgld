@@ -4,12 +4,15 @@ from sa_algorithms import *
 from scipy import stats as spstats
 import pylab as pp
 
+from working_code import *
+
 problem_params = default_params()
 problem_params["std_log_tau"] = 0.2
 problem_params["tau_is_log_normal"] = True
 problem_params["epsilon"] = 0.9 #0.01 #10*np.array([1.0,1.0,0.5,0.5,0.5,0.1,0.01,0.5,2.0,1])
 #problem_params["epsilon"] = np.array([1.0,1.0,0.5,0.5,0.5,0.1,0.01,0.5,2.0,1])
-problem_params["epsilon"] = 2.0+0*np.array([0.25,0.25,0.25,0.25,0.25,0.05,0.01,0.25,2.0,2.0])
+problem_params["epsilon"] = np.array([0.25,0.25,0.25,0.25,0.25,0.05,0.01,0.25,2.0,2.0])
+#problem_params["epsilon"] = 0.5
 #problem_params["epsilon"] = 0.1*np.array([0.1,0.1,0.1,0.1,0.1,0.01,0.01,0.1,1.0,1.0])
 #problem_params["epsilon"] = 0.01*np.array([  0.91064006,   0.12437852,   1.06735857,   1.70135243,1.10402222,   0.22966667, 0.08973333,   1.28127273, 10.        ,   9.        ])
 
@@ -82,32 +85,22 @@ def run_sgld( problem, T, h, A, c, theta=None, x = None, verbose_rate = 100, use
     x = problem.simulate( theta, omega )
     loglike_x = problem.loglike_x( x )
     
+    if accept_move(log_acceptance):
+      x         = x_proposal
+      theta     = theta_proposal
+      loglike_x = loglike_x_proposal
+    
+    X.append(x)
+    THETAS.append(theta)
+    LL.append(loglike_x)
+    
     # --------------- #
     # samples omegas  #
     # --------------- #
-    if use_omega and np.random.rand()<1.1:
-      omega_proposal = np.random.randint(T)
-      x_proposal     = problem.simulate( theta, omega_proposal )
-      loglike_x_proposal = problem.loglike_x( x_proposal )
-      
+    if use_omega and np.random.rand()<0.01:
+      theta, x, omega, loglike_x = omega_sample(problem, theta, x, omega, loglike_x )
     
-      #log_acceptance =  -0.5*( (x_proposal-x)**2 /(problem.x_epsilon**2) )
-      #log_acceptance =  0 #-0.5*( (x_proposal-x)**2 /(problem.x_epsilon**2) )
-      log_acceptance = loglike_x_proposal - loglike_x -0.5*( np.sum( (x_proposal-x)**2 )/(problem.x_epsilon**2) )             
-      accept = False
-      if log_acceptance < 0:
-        if np.random.rand() < np.exp( log_acceptance ):
-          # accept downward move
-          accept=True
-      else:
-        # accept upward move
-        accept = True
-      
-      # for thetas
-      if accept:
-        x         = x_proposal
-        loglike_x = loglike_x_proposal
-        omega     = omega_proposal
+    OMEGAS.append(omega)
       
     #h *= 0.9999
     X.append(x)
@@ -254,6 +247,7 @@ def run_mcmc( problem, T, theta=None, x = None, verbose_rate = 100, use_omega = 
   # sample...
   for t in xrange(T):
     
+      
     # -------------------- #
     # sample theta first   #
     # -------------------- #
@@ -274,17 +268,7 @@ def run_mcmc( problem, T, theta=None, x = None, verbose_rate = 100, use_omega = 
     log_acceptance =  loglike_x_proposal + loglike_prior_theta_proposal + loglike_q_from_proposal_to_theta \
                     - loglike_x          - loglike_prior_theta          - loglike_q_from_theta_to_proposal
                     
-    accept = False
-    if log_acceptance < 0:
-      if np.random.rand() < np.exp( log_acceptance ):
-        # accept downward move
-        accept=True
-    else:
-      # accept upward move
-      accept = True
-      
-    # for thetas
-    if accept:
+    if accept_move(log_acceptance):
       x         = x_proposal
       theta     = theta_proposal
       loglike_x = loglike_x_proposal
@@ -296,138 +280,19 @@ def run_mcmc( problem, T, theta=None, x = None, verbose_rate = 100, use_omega = 
     # --------------- #
     # samples omegas  #
     # --------------- #
-    if use_omega and np.random.rand()<-1.1:
-      omega_proposal = np.random.randint(T)
-      x_proposal     = problem.simulate( theta, omega_proposal )
-      loglike_x_proposal = problem.loglike_x( x_proposal )
-      
-    
-      #log_acceptance =  -0.5*( (x_proposal-x)**2 /(problem.x_epsilon**2) )
-      log_acceptance =  loglike_x_proposal - loglike_x
-                    
-      accept = False
-      if log_acceptance < 0:
-        if np.random.rand() < np.exp( log_acceptance ):
-          # accept downward move
-          accept=True
-      else:
-        # accept upward move
-        accept = True
-      
-      # for thetas
-      if accept:
-        x         = x_proposal
-        loglike_x = loglike_x_proposal
-        omega     = omega_proposal
-    
-    
+    if use_omega and np.random.rand()<0.01:
+      #theta, x, omega, loglike_x = omega_sample(problem, theta, x, omega, loglike_x )
+      omega = np.random.randint(10**6)
+      x     = problem.simulate( theta, omega )
+    else:
+      omega = np.random.randint(10**6)
+      #x     = problem.simulate( theta, omega )
+        
     OMEGAS.append(omega)
-    
     
     if np.mod(t+1,verbose_rate)==0:
       print "t = %04d    loglik = %3.3f    theta = "%(t+1,loglike_x),theta,"stats",x
   return np.squeeze(np.array( THETAS)), np.squeeze(np.array(X)), np.squeeze(np.array(LL)), np.squeeze(np.array(OMEGAS))
-
-def run_true_mcmc( problem, T, theta=None, x = None, verbose_rate = 100, use_omega = False ):
-  if theta is None:
-    theta = problem.prior_rand()
-    
-  # parameters
-  THETAS = [theta]
-  
-  if use_omega is False:
-    omega = None
-  else:
-    omega = np.random.randint(T)
-    
-  OMEGAS = [omega]
-  # pseudo-data
-  if x is None:
-    x = problem.simulate( theta, omega )
-  X = [x]
-  
-  loglike_x = problem.loglike_x( x )
-  
-  LL = [loglike_x]
-  
-  # sample...
-  for t in xrange(T):
-    
-    # -------------------- #
-    # sample theta first   #
-    # -------------------- #
-    theta_proposal = problem.propose( theta )
-    x_proposal     = problem.simulate( theta_proposal, omega )
-    
-    # using kernel_epsilon( observations | x )
-    loglike_x_proposal = problem.loglike_x( x_proposal )
-    
-    # a log-normal proposal, so we need to compute this
-    loglike_q_from_proposal_to_theta = problem.loglike_proposal_theta( theta, theta_proposal )
-    loglike_q_from_theta_to_proposal = problem.loglike_proposal_theta( theta_proposal, theta )
-    
-    # loglike_prior_theta
-    loglike_prior_theta           = problem.loglike_posterior( theta )
-    loglike_prior_theta_proposal  = problem.loglike_posterior( theta_proposal )
-    
-    log_acceptance =  0 + loglike_prior_theta_proposal + loglike_q_from_proposal_to_theta \
-                    - 0          - loglike_prior_theta          - loglike_q_from_theta_to_proposal
-              
-    print theta, "  --->  ", theta_proposal, "log_acc = ", log_acceptance
-    accept = False
-    if log_acceptance < 0:
-      if np.random.rand() < np.exp( log_acceptance ):
-        # accept downward move
-        accept=True
-    else:
-      # accept upward move
-      accept = True
-      
-    # for thetas
-    if accept:
-      x         = x_proposal
-      theta     = theta_proposal
-      loglike_x = loglike_x_proposal
-    
-    X.append(x)
-    THETAS.append(theta)
-    LL.append(loglike_x)
-    
-    # --------------- #
-    # samples omegas  #
-    # --------------- #
-    if use_omega and np.random.rand()<1.1:
-      omega_proposal = np.random.randint(T)
-      x_proposal     = problem.simulate( theta, omega_proposal )
-      loglike_x_proposal = problem.loglike_x( x_proposal )
-      
-    
-      #log_acceptance =  -0.5*( (x_proposal-x)**2 /(problem.x_epsilon**2) )
-      log_acceptance =  0 #-0.5*( (x_proposal-x)**2 /(problem.x_epsilon**2) )
-                    
-      accept = False
-      if log_acceptance < 0:
-        if np.random.rand() < np.exp( log_acceptance ):
-          # accept downward move
-          accept=True
-      else:
-        # accept upward move
-        accept = True
-      
-      # for thetas
-      if accept:
-        x         = x_proposal
-        loglike_x = loglike_x_proposal
-        omega     = omega_proposal
-    
-    
-    OMEGAS.append(omega)
-    
-    
-    if np.mod(t+1,verbose_rate)==0:
-      print "t = %04d    loglik = %3.3f    theta = %3.3f    x = %3.3f"%(t+1,loglike_x,theta,x)
-  return np.squeeze(np.array( THETAS)), np.squeeze(np.array(X)), np.squeeze(np.array(LL)), np.squeeze(np.array(OMEGAS))
-
 
 class generate_blowfly( object ):
   def __init__( self, abcpy_problem, x_epsilon ):
@@ -525,19 +390,22 @@ class generate_blowfly( object ):
     f = self.loglike_x(x)
     state = np.random.get_state()
     
-    mask = 2*np.random.binomial(1,0.5,len(theta))-1
+    
     
      #np.exp( log_theta + c )
-    theta_minus = theta-c*mask
-    theta_plus = theta_minus + 2*c*mask
+    
     
     plusXs = []
     minusXs = []
     for s in range(S):
-      state = np.random.get_state()
+      mask = 2*np.random.binomial(1,0.5,len(theta))-1
+      theta_minus = theta-c*mask
+      theta_plus = theta_minus + 2*c*mask
+      
+      #state = np.random.get_state()
       x_plus = self.simulate( theta_plus, seed=omega+s ) #omega+s+1000 )
       x_minus = self.simulate( theta_minus, seed=omega+s ) #omega+s+1000 )
-      np.random.randn()
+      #np.random.randn()
       
       plusXs.append( x_plus )
       minusXs.append( x_minus )
@@ -670,7 +538,7 @@ if __name__ == "__main__":
   theta0 = np.array( [ 1.29009909, -0.88083141,  6.67833266,  0.67990882,  0.50963748,  2.5611348 ])
   #THETA,X,LL,OMEGAS = run_true_rmsprop( problem, T, h, A, c, theta=np.array([0.1]), verbose_rate=1000, use_omega = False  )
   #THETA,X,LL,OMEGAS = run_sgld( problem, T, h, A, c, theta=theta0, verbose_rate=100, use_omega = True  )
-  THETA,X,LL,OMEGAS = run_mcmc( problem, T, theta=theta0, verbose_rate=100, use_omega = True  )
+  THETA,X,LL,OMEGAS = run_mcmc( problem, T, theta=theta0, verbose_rate=100, use_omega = False  )
   #THETA,X,LL,OMEGAS = run_thermostats( problem, T, h, A, c, theta=theta0, verbose_rate=100, use_omega = True  )
   
   #theta_range = np.linspace( 0.01,0.5,500)

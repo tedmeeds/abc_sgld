@@ -3,7 +3,23 @@ import scipy as sp
 from scipy import stats as spstats
 import pylab as pp
 
+max_int_for_omega = 10**8
 
+def bounce_off_boundaries( theta, p, lower_bounds, upper_bounds ):
+  D = len(theta)
+  
+  for d in range(D):
+    if theta[d] < lower_bounds[d]:
+      theta[d] = lower_bounds[d] + (lower_bounds[d]-theta[d]) #from Neal Handbook, p37
+      p[d] *= -1
+
+    if theta[d] > upper_bounds[d]:
+      theta[d] = upper_bounds[d] - (theta[d]-upper_bounds[d]) #from Neal Handbook, p37
+      p[d] *= -1
+  return theta, p
+  
+
+    
 def accept_move(log_acceptance):
   accept = False
   if log_acceptance < 0:
@@ -39,6 +55,13 @@ def hamiltonian_accept( problem, theta, theta_proposal, x, x_proposal, p, p_prop
     
   return theta, x, loglike_x 
 
+def init_omega( use_omega ):
+  if use_omega is False:
+    omega = None
+  else:
+    omega = np.random.randint(max_int_for_omega)
+  return omega
+  
 def omega_flip(problem, theta, x, omega, loglike_x ):
   
   omega     = np.random.randint(10**6)
@@ -65,14 +88,10 @@ def omega_sample(problem, theta, x, omega, loglike_x ):
   
 def run_mcmc( problem, params, theta, x = None ):
   T         = params["T"]
+  S         = params["S"]
   use_omega = params["use_omega"]
 
-  # random seed init
-  if use_omega is False:
-    omega = None
-  else:
-    omega = np.random.randint(10**6)
-    
+  omega = init_omega( use_omega )
   
   # pseudo-data
   if x is None:
@@ -92,7 +111,7 @@ def run_mcmc( problem, params, theta, x = None ):
     # sample (theta, x)    #
     # -------------------- #
     theta_proposal = problem.propose( theta )
-    x_proposal     = problem.simulate( theta_proposal, omega )
+    x_proposal     = problem.simulate( theta_proposal, omega, S )
     
     # using kernel_epsilon( observations | x )
     loglike_x_proposal = problem.loglike_x( x_proposal )
@@ -121,7 +140,7 @@ def run_mcmc( problem, params, theta, x = None ):
     # samples omegas  #
     # --------------- #
     if use_omega and np.random.rand() < omega_rate:
-      theta, x, omega, loglike_x = omega_sample_procedure(problem, theta, x, omega, loglike_x )
+      theta, x, omega, loglike_x = omega_sample_procedure(problem, theta, x, omega, loglike_x, S )
     
     OMEGAS.append(omega)
     
@@ -132,97 +151,119 @@ def run_mcmc( problem, params, theta, x = None ):
   
 def run_thermostats( problem, params, theta, x = None ):
   
-  assert len(x.shape) == 2, "x should be S by dim"
-  T            = params["T"]
-  verbose_rate = params["verbose_rate"]
-  use_omega    = params["use_omega_across_time"]
-  use_omega    = params["use_omega_at_single_time"]
-  dt           = params["dt"]
-  A            = params["A"]
-  c            = params["c"]
-  S            = params["S"]
-  keep_x       = params["keep_x"] # the HABC methods do not necessarily have x in the state space
+  T             = params["T"]
+  S             = params["S"]
+  verbose_rate  = params["verbose_rate"]
+  omega_params  = params["omega_params"]
+  C             = params["C"]  # injected noise
+  eta           = params["eta"] # Hamiltonain step size
+  d_theta       = params["d_theta"] # step used for estimating gradients
+  grad_U_func   = params["grad_func"]
+  grad_U_params = params["grad_params"]
+  
+  keep_x        = params["keep_x"] # the HABC methods do not necessarily have x in the state space
   
   # keep theta within bounds
   lower_bounds = params["lower_bounds"]
   upper_bounds = params["upper_bounds"]
   
-  S,dim = x.shape
+  D   = len(theta)
   
-  two_gradients = []
-  one_gradients = []
-  true_gradients = []
+  outputs = {}
+  # two_gradients = []
+  # one_gradients = []
+  # true_gradients = []
   
-  if use_omega is False:
-    omega = None
-  else:
-    omega = np.random.randint(T)
+  omega = init_omega( omega_params )
   
   # pseudo-data
-  if x is None:
-    x = problem.simulate( theta, omega )
+  if keep_x:
+    if x is None:
+      x = problem.simulate( theta, omega, S )
+    assert len(x.shape) == 2, "x should be S by dim"
+    loglike_x = problem.loglike_x( x )
+    X      = [x]
+    LL     = [loglike_x]
+  else:
+    x         = None
+    loglike_x = None
+    
+  # initialize momentum  
+  p = np.random.randn(D)
+  # initialize thermostat
+  xi = C
   
   
-  loglike_x = problem.loglike_x( x )
-  
-  m = 1.0
-  p = np.sqrt(m)*np.random.randn()
-  xi = A
-  
-  X      = [x]
   THETAS = [theta]  
   OMEGAS = [omega]
-  LL     = [loglike_x]
   
   # sample...
   for t in xrange(T):
-    if use_omega is False:
-      omega = t
+    
+    # ----------------------------- # 
+    # simulate trajectory for theta #
+    # ----------------------------- #
+    
+    # estimate stochastic gradient
+    grad_U = grad_U_func( theta, d_theta, omega, S, grad_U_params)
+
     #grad_U = problem.one_sided_gradient( theta, x, omega, c )
-    true_grad = problem.true_abc_gradient( theta, true_gradients )
-    grad_U = problem.two_sided_sl_gradient( theta, x, omega, c, two_gradients, S )
-    #grad_U = problem.two_sided_gradient( theta, x, omega, c, two_gradients, S )
-    #grad_U = true_grad
-    # divide by theta to transform var to 
-    #grad_U *= theta
-    #m = 0.9*m+0.1*grad_U**2
-    p = p - xi*p*h - grad_U*h + np.sqrt(2.0*A*h)*np.random.randn()/np.sqrt(m)
-    #theta = theta + p*h
-    #log_theta = log_theta + p*h/np.sqrt(m)
+    #true_grad = problem.true_abc_gradient( theta, true_gradients )
+    #
+    if grad_U_params["record_2side_sl_grad"]:
+      grad_U_dummy = problem.two_sided_sl_gradient( theta, d_theta, omega, S, grad_U_params )
+    if grad_U_params["record_2side_keps_grad"]:
+      grad_U_dummy = problem.two_sided_keps_gradient( theta, d_theta, omega, S, grad_U_params )
+    if grad_U_params["record_true_abc_grad"]:
+      grad_U_dummy = problem.true_abc_gradient( theta, d_theta, S, grad_U_params )
+    if grad_U_params["record_true_grad"]:
+      grad_U_dummy = problem.true_gradient( theta, grad_U_params )
     
-    theta = theta + p*h
+    # full step momentum
+    p = p - xi*p*eta - grad_U*eta + np.sqrt(2.0*C*eta)*np.random.randn( D )
     
-    while theta < min_theta:
-      #pdb.set-trace()
-      theta = min_theta + (min_theta-theta) #from Neal Handbook, p37
-      p=-p
+    # full step position
+    theta = theta + p*eta
     
+    # bounce position off parameter boundaries
+    theta, p = bounce_off_boundaries( theta, p, lower_bounds, upper_bounds )
     
-    #print "theta = ",theta," M= ",m, "grad_U = ",grad_U
-    xi = xi + h*(p*p - 1.0)
-    x = problem.simulate( theta, omega )
-    
-    #print grad_U, p, theta, xi
-    loglike_x = problem.loglike_x( x )
-    
-    
-    
-    THETAS.append(theta)
-    LL.append(loglike_x)
+    # update thermostat
+    xi = xi + eta*( np.dot(p.T,p)/D - 1.0)
     
     # --------------- #
     # samples omegas  #
     # --------------- #
-    if use_omega and np.random.rand()<0.01:
-      #theta, x, omega, loglike_x = omega_sample(problem, theta, x, omega, loglike_x )
-      #x_computed_at_omega = True
-      omega = np.random.randint(10**6)
+    if omega_params["use_omega"] and np.random.rand() < omega_params["omega_rate"]:
+      if omega_params["omega_sample"]:
+        # propose new omega and accept/reject using MH
+        theta, x, omega, loglike_x = omega_sample(problem, theta, x, omega, loglike_x )
+      elif omega_params["omega_switch"]:
+        # randomly switch to new omega
+        omega = init_omega( omega_params )
+
+    if keep_x:
+      x = problem.simulate( theta, omega )
+      loglike_x = problem.loglike_x( x )
+      LL.append(loglike_x)
+      X.append(x)
     
-    X.append(x)
+    THETAS.append(theta)
     OMEGAS.append(omega)
     
     
     if np.mod(t+1,verbose_rate)==0:
-      print "t = %04d    loglik = %3.3f    theta = %3.3f    x = %3.3f"%(t+1,loglike_x,theta,x)
-  return np.squeeze(np.array( THETAS)), np.squeeze(np.array(X)), np.squeeze(np.array(LL)), np.squeeze(np.array(OMEGAS)), {"two_grads":np.array(two_gradients),"one_grads":np.array(one_gradients),"true_grads":np.array(true_gradients)}
+      if keep_x:
+        print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0])
+      else:
+        print "t = %04d    theta0 = %3.3f"%(t+1,theta[0])
+      
+  outputs["THETA"] = np.squeeze(np.array( THETAS))
+  outputs["OMEGA"] = np.squeeze(np.array(OMEGAS))
+  outputs["GLOGS"] = grad_U_params["logs"]
+  if keep_x:
+    outputs["X"] = np.squeeze(np.array(X))
+    outputs["LL"] = np.squeeze(np.array(LL))
+  return outputs
+  #return np.squeeze(np.array( THETAS)), np.squeeze(np.array(X)), np.squeeze(np.array(LL)), np.squeeze(np.array(OMEGAS)), {"two_grads":np.array(two_gradients),"one_grads":np.array(one_gradients),"true_grads":np.array(true_gradients)}
 

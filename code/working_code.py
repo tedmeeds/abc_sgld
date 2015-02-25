@@ -87,22 +87,34 @@ def omega_sample(problem, theta, x, omega, loglike_x ):
   return theta, x, omega, loglike_x
   
 def run_mcmc( problem, params, theta, x = None ):
-  T         = params["T"]
-  S         = params["S"]
-  use_omega = params["use_omega"]
-
-  omega = init_omega( use_omega )
+  T             = params["T"]
+  S             = params["S"]
+  verbose_rate  = params["verbose_rate"]
+  omega_params  = params["omega_params"]
+  # keep theta within bounds
+  lower_bounds = params["lower_bounds"]
+  upper_bounds = params["upper_bounds"]
+  
+  keep_x        = True
+  omega = init_omega( omega_params )
+  outputs = {}
   
   # pseudo-data
-  if x is None:
-    x = problem.simulate( theta, omega )
+  if keep_x:
+    if x is None:
+      x = problem.simulate( theta, omega, S )
+    assert len(x.shape) == 2, "x should be S by dim"
+    loglike_x = problem.loglike_x( x )
+    X      = [x]
+    LL     = [loglike_x]
+  else:
+    x         = None
+    loglike_x = None
   
-  loglike_x = problem.loglike_x( x )
+  p_dummy = np.random.randn(len(theta))
   
-  X      = [x]
   THETAS = [theta]
   OMEGAS = [omega]
-  LL     = [loglike_x]
   
   # sample...
   for t in xrange(T):
@@ -111,6 +123,9 @@ def run_mcmc( problem, params, theta, x = None ):
     # sample (theta, x)    #
     # -------------------- #
     theta_proposal = problem.propose( theta )
+    # bounce position off parameter boundaries
+    theta_proposal, p_dummy = bounce_off_boundaries( theta_proposal, p_dummy, lower_bounds, upper_bounds )
+    
     x_proposal     = problem.simulate( theta_proposal, omega, S )
     
     # using kernel_epsilon( observations | x )
@@ -132,22 +147,39 @@ def run_mcmc( problem, params, theta, x = None ):
       theta     = theta_proposal
       loglike_x = loglike_x_proposal
     
-    X.append(x)
-    THETAS.append(theta)
-    LL.append(loglike_x)
+    
     
     # --------------- #
     # samples omegas  #
     # --------------- #
-    if use_omega and np.random.rand() < omega_rate:
-      theta, x, omega, loglike_x = omega_sample_procedure(problem, theta, x, omega, loglike_x, S )
+    if omega_params["use_omega"] and np.random.rand() < omega_params["omega_rate"]:
+      if omega_params["omega_sample"]:
+        # propose new omega and accept/reject using MH
+        theta, x, omega, loglike_x = omega_sample(problem, theta, x, omega, loglike_x )
+      elif omega_params["omega_switch"]:
+        # randomly switch to new omega
+        omega = init_omega( omega_params )
     
+    if keep_x:
+      x = problem.simulate( theta, omega )
+      loglike_x = problem.loglike_x( x )
+      LL.append(loglike_x)
+      X.append(x)
+    
+    THETAS.append(theta)
     OMEGAS.append(omega)
     
     
     if np.mod(t+1,verbose_rate)==0:
       print "t = %04d    loglik = %3.3f    theta = %3.3f    x = %3.3f"%(t+1,loglike_x,theta,x)
-  return np.squeeze(np.array( THETAS)), np.squeeze(np.array(X)), np.squeeze(np.array(LL)), np.squeeze(np.array(OMEGAS))
+      
+  outputs["THETA"] = np.squeeze(np.array( THETAS))
+  outputs["OMEGA"] = np.squeeze(np.array(OMEGAS))
+  
+  if keep_x:
+    outputs["X"] = np.squeeze(np.array(X))
+    outputs["LL"] = np.squeeze(np.array(LL))
+  return outputs
 
 def run_sgld( problem, params, theta, x = None ):
   

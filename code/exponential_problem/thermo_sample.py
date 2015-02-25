@@ -7,15 +7,15 @@ from abc_sgld.code.working_code import *
 
 keep_x        = True 
 init_seed     = 1
-T             = 15000 # nbr of samples
+T             = 5000 # nbr of samples
 verbose_rate  = 1000
-C             = 10.01    # injected noise variance parameter
-eta           = 0.01 # step size for Hamiltoniam dynamics
+C             = 20.01    # injected noise variance parameter
+eta           = 0.001 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients
 d_theta = 0.01  # step size for gradient estimate
-S       = 10 
+S       = 5 
 grad_params = {}
   
 # keep theta within bounds
@@ -70,7 +70,8 @@ if __name__ == "__main__":
   # run algorithm
   #outs = run_thermostats( problem, params, theta0, x0 )
   #outs = run_sghmc( problem, params, theta0, x0 )
-  outs = run_sgld( problem, params, theta0, x0 )
+  #outs = run_sgld( problem, params, theta0, x0 )
+  outs = run_mcmc( problem, params, theta0, x0 )
   
   # view results of single chain
   problem.view_single_chain( outs )

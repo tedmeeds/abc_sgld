@@ -6,10 +6,10 @@ import pylab as pp
 
 problem_params = default_params()
 
-problem_params["N"] = 5
+problem_params["N"] = 50
 problem_params["q_stddev"] = 0.5
-problem_params["theta_star"]      = 0.1
-problem_params["epsilon"] = 0.25*np.sqrt( 1.0 / (problem_params["N"]*problem_params["theta_star"]**2) )
+problem_params["theta_star"]      = 0.2
+problem_params["epsilon"] = 0.1*np.sqrt( 1.0 / (problem_params["N"]*problem_params["theta_star"]**2) )
 problem_params["alpha"]           = 1.0
 problem_params["beta"]            = 1.0
 #problem_params["alpha"]           = 3.75
@@ -49,7 +49,9 @@ class generate_exponential( object ):
     return self.p.theta_proposal_rand( theta )
   
   def loglike_x( self, x ):
-    return self.kernel.logpdf( x )
+    S,J = x.shape
+    L = logsumexp( self.kernel.logpdf( x ), 0 ) - np.log(S)
+    return L
     
   def loglike_prior( self, theta ):
     return self.p.theta_prior_logpdf( theta )

@@ -7,7 +7,7 @@ from abc_sgld.code.working_code import *
 
 keep_x        = True 
 init_seed     = 1
-T             = 15000 # nbr of samples
+T             = 5000 # nbr of samples
 verbose_rate  = 1000
 C             = 20.01    # injected noise variance parameter
 eta           = 0.001 # step size for Hamiltoniam dynamics

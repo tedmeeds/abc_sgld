@@ -125,18 +125,25 @@ def hamiltonian_accept( problem, theta, theta_proposal, x, x_proposal, p, p_prop
     
   return theta, x, loglike_x 
 
-def init_omega( omega_params ):
+def init_omega( omega_params, S ):
   if omega_params["use_omega"] is False:
     omega = None
   else:
-    omega = np.random.randint(max_int_for_omega)
+    omega = np.zeros(S,dtype=int)
+    for s in range(S):
+      omega[s] = np.random.randint(max_int_for_omega)
   return omega
   
-def omega_flip(problem, theta, x, omega, loglike_x ):
+def omega_switch(problem, theta, x, omega, loglike_x, omega_params ):
+  any_changes = False
+  for s in range(len(omega)):
+    if np.random.rand() < omega_params["omega_rate"]:
+      omega[s]     = np.random.randint(max_int_for_omega)
+      any_changes = True
   
-  omega     = np.random.randint(max_int_for_omega)
-  x         = problem.simulate( theta, omega )
-  loglike_x = problem.loglike_x( x )
+  if any_changes:
+    x         = problem.simulate( theta, omega )
+    loglike_x = problem.loglike_x( x )
     
   return theta, x, omega, loglike_x
     
@@ -166,7 +173,7 @@ def run_mcmc( problem, params, theta, x = None ):
   upper_bounds = params["upper_bounds"]
   
   keep_x        = True
-  omega = init_omega( omega_params )
+  omega = init_omega( omega_params, S )
   outputs = {}
   
   # pseudo-data
@@ -222,17 +229,17 @@ def run_mcmc( problem, params, theta, x = None ):
     # --------------- #
     # samples omegas  #
     # --------------- #
-    if omega_params["use_omega"] and np.random.rand() < omega_params["omega_rate"]:
+    if omega_params["use_omega"]:
       if omega_params["omega_sample"]:
         # propose new omega and accept/reject using MH
         theta, x, omega, loglike_x = omega_sample(problem, theta, x, omega, loglike_x )
       elif omega_params["omega_switch"]:
         # randomly switch to new omega
-        omega = init_omega( omega_params )
+        theta, x, omega, loglike_x = omega_switch(problem, theta, x, omega, loglike_x, omega_params )
     
     if keep_x:
-      x = problem.simulate( theta, omega, S )
-      loglike_x = problem.loglike_x( x )
+      #x = problem.simulate( theta, omega, S )
+      #loglike_x = problem.loglike_x( x )
       LL.append(loglike_x)
       X.append(x.reshape( (1,S)))
     
@@ -275,7 +282,7 @@ def run_sgld( problem, params, theta, x = None ):
   # one_gradients = []
   # true_gradients = []
   
-  omega = init_omega( omega_params )
+  omega = init_omega( omega_params, S )
   
   # pseudo-data
   if keep_x:
@@ -332,15 +339,16 @@ def run_sgld( problem, params, theta, x = None ):
     # --------------- #
     # samples omegas  #
     # --------------- #
-    if omega_params["use_omega"] and np.random.rand() < omega_params["omega_rate"]:
+    if omega_params["use_omega"]:
       if omega_params["omega_sample"]:
         # propose new omega and accept/reject using MH
         theta, x, omega, loglike_x = omega_sample(problem, theta, x, omega, loglike_x )
       elif omega_params["omega_switch"]:
         # randomly switch to new omega
-        omega = init_omega( omega_params )
+        theta, x, omega, loglike_x = omega_switch(problem, theta, x, omega, loglike_x, omega_params )
 
     if keep_x:
+      # probably too many simulations
       x = problem.simulate( theta, omega )
       loglike_x = problem.loglike_x( x )
       LL.append(loglike_x)
@@ -389,7 +397,7 @@ def run_sghmc( problem, params, theta, x = None ):
   # one_gradients = []
   # true_gradients = []
   
-  omega = init_omega( omega_params )
+  omega = init_omega( omega_params, S )
   
   # pseudo-data
   if keep_x:
@@ -451,13 +459,13 @@ def run_sghmc( problem, params, theta, x = None ):
     # --------------- #
     # samples omegas  #
     # --------------- #
-    if omega_params["use_omega"] and np.random.rand() < omega_params["omega_rate"]:
+    if omega_params["use_omega"]:
       if omega_params["omega_sample"]:
         # propose new omega and accept/reject using MH
         theta, x, omega, loglike_x = omega_sample(problem, theta, x, omega, loglike_x )
       elif omega_params["omega_switch"]:
         # randomly switch to new omega
-        omega = init_omega( omega_params )
+        theta, x, omega, loglike_x = omega_switch(problem, theta, x, omega, loglike_x, omega_params )
 
     if keep_x:
       x = problem.simulate( theta, omega )
@@ -508,7 +516,7 @@ def run_thermostats( problem, params, theta, x = None ):
   # one_gradients = []
   # true_gradients = []
   
-  omega = init_omega( omega_params )
+  omega = init_omega( omega_params, S )
   
   # pseudo-data
   if keep_x:
@@ -569,13 +577,13 @@ def run_thermostats( problem, params, theta, x = None ):
     # --------------- #
     # samples omegas  #
     # --------------- #
-    if omega_params["use_omega"] and np.random.rand() < omega_params["omega_rate"]:
+    if omega_params["use_omega"]:
       if omega_params["omega_sample"]:
         # propose new omega and accept/reject using MH
         theta, x, omega, loglike_x = omega_sample(problem, theta, x, omega, loglike_x )
       elif omega_params["omega_switch"]:
         # randomly switch to new omega
-        omega = init_omega( omega_params )
+        theta, x, omega, loglike_x = omega_switch(problem, theta, x, omega, loglike_x, omega_params )
 
     if keep_x:
       x = problem.simulate( theta, omega )

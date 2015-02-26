@@ -3,57 +3,48 @@ Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
 The top-level auxiliary file: draft.aux
 The style file: icml2014.bst
 Database file #1: abcsgld.bib
-Repeated entry---line 489 of file abcsgld.bib
- : @article{beaumont2002approximate
- :                                 ,
-I'm skipping whatever remains of this entry
-Repeated entry---line 634 of file abcsgld.bib
- : @article{marin:2012
- :                    ,
-I'm skipping whatever remains of this entry
 Warning--I didn't find a database entry for "leimkuhler:2009"
-Warning--I didn't find a database entry for "spall"
 Warning--I didn't find a database entry for "michael"
 Warning--empty journal in chen2014stochastic
-You've used 22 entries,
+You've used 26 entries,
             2773 wiz_defined-function locations,
-            738 strings with 8403 characters,
-and the built_in function-call counts, 10243 in all, are:
-= -- 931
-> -- 539
-< -- 14
-+ -- 184
-- -- 162
-* -- 838
-:= -- 1559
-add.period$ -- 66
-call.type$ -- 22
-change.case$ -- 119
-chr.to.int$ -- 22
-cite$ -- 45
-duplicate$ -- 470
-empty$ -- 868
-format.name$ -- 196
-if$ -- 2140
+            758 strings with 9114 characters,
+and the built_in function-call counts, 11731 in all, are:
+= -- 1062
+> -- 610
+< -- 18
++ -- 209
+- -- 183
+* -- 937
+:= -- 1793
+add.period$ -- 78
+call.type$ -- 26
+change.case$ -- 138
+chr.to.int$ -- 26
+cite$ -- 53
+duplicate$ -- 553
+empty$ -- 1000
+format.name$ -- 223
+if$ -- 2457
 int.to.chr$ -- 1
 int.to.str$ -- 1
-missing$ -- 22
-newline$ -- 118
-num.names$ -- 88
-pop$ -- 216
+missing$ -- 26
+newline$ -- 138
+num.names$ -- 104
+pop$ -- 253
 preamble$ -- 1
-purify$ -- 97
+purify$ -- 112
 quote$ -- 0
-skip$ -- 361
+skip$ -- 425
 stack$ -- 0
-substring$ -- 489
-swap$ -- 43
-text.length$ -- 2
+substring$ -- 512
+swap$ -- 52
+text.length$ -- 3
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 242
+type$ -- 286
 warning$ -- 1
-while$ -- 99
+while$ -- 113
 width$ -- 0
-write$ -- 287
-(There were 2 error messages)
+write$ -- 337
+(There were 3 warnings)

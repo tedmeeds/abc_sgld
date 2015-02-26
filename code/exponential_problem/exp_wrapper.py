@@ -7,12 +7,14 @@ import pylab as pp
 
 problem_params = default_params()
 
-problem_params["N"] = 50
-problem_params["q_stddev"] = 0.01
-problem_params["theta_star"]      = 0.2
-problem_params["epsilon"] = 0.1*np.sqrt( 1.0 / (problem_params["N"]*problem_params["theta_star"]**2) )
-problem_params["alpha"]           = 1.0
-problem_params["beta"]            = 1.0
+problem_params["N"]               = 20
+problem_params["q_stddev"]        = 0.2
+problem_params["theta_star"]      = 0.15
+problem_params["epsilon"]         = 0.25*np.sqrt( 1.0 / (problem_params["N"]*problem_params["theta_star"]**2) )
+problem_params["alpha"]           = 0.1
+problem_params["beta"]            = 0.1
+problem_params["min_range"]       = 0.005
+problem_params["max_range"]       = 0.3
 #problem_params["alpha"]           = 3.75
 #problem_params["beta"]            = 1.01
 
@@ -70,7 +72,7 @@ class generate_exponential( object ):
       if seed is not None:
         # save current state
         current_state = np.random.get_state()
-        np.random.seed(seed+s)
+        np.random.seed(seed[s])
     
     
       raw_outputs = self.p.simulation_function( theta )
@@ -162,17 +164,17 @@ class generate_exponential( object ):
       theta_plus = theta_minus + 2*d_theta
       
       if omega is not None:
-        seed = omega+s
+        seed = omega[s]
        
       if seed is None:
         state = np.random.get_state()
       
-      X_plus[s] = self.simulate( theta_plus, seed=seed )[0]
+      X_plus[s] = self.simulate( theta_plus, seed=[seed] )[0]
       
       if seed is None:
         np.random.set_state(state)
         
-      X_minus[s] = self.simulate( theta_minus, seed=seed )[0]
+      X_minus[s] = self.simulate( theta_minus, seed=[seed] )[0]
       
       seeds.append(seed)
       
@@ -190,7 +192,7 @@ class generate_exponential( object ):
     
     grad = (f_plus-f_minus)/(theta_plus-theta_minus) + (self.p.alpha-1)/theta - self.p.beta
     
-    params["logs"]["2side_keps"].append( np.squeeze( np.array([grad, theta, theta_plus, x_plus,f_plus,theta_minus, x_minus,f_minus])) )
+    params["logs"]["2side_keps"].append( np.squeeze( np.array([grad, theta, theta_plus, X_plus.mean(),f_plus,theta_minus, X_minus.mean(),f_minus])) )
     return -grad
     
   def two_sided_sl_gradient( self, theta, d_theta, omega, S, params ):
@@ -214,7 +216,7 @@ class generate_exponential( object ):
     
     grad = (f_plus-f_minus)/(theta_plus-theta_minus) + (self.p.alpha-1)/theta - self.p.beta
     
-    params["logs"]["2side_sl"].append( np.squeeze( np.array([grad, theta, theta_plus, X_plus,f_plus,theta_minus, X_minus,f_minus])) )
+    params["logs"]["2side_sl"].append( np.squeeze( np.array([grad, theta, theta_plus, X_plus.mean(),f_plus,theta_minus, X_minus.mean(),f_minus])) )
     return -grad    
     
   def posterior( self, thetas ):
@@ -263,6 +265,7 @@ class generate_exponential( object ):
       if time_id <= len(thetas):
         #errs.append( bin_errors_1d(self.p.coarse_theta_range, self.p.posterior_cdf_bins, thetas[:time_id]) )
         er = cramer_vonMises_criterion( self.p.posterior_cdf_bins, thetas[:time_id], self.p.coarse_theta_range )
+        
         #errs.append( bin_sq_errors_1d(self.p.coarse_theta_range, self.p.posterior_cdf_bins, thetas[:time_id]) )
         errs.append( er  )
         time_ids.append(time_id)

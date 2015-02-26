@@ -1,4 +1,4 @@
-\begin{thebibliography}{22}
+\begin{thebibliography}{26}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -35,6 +35,13 @@ Ding, Nan, Fang, Youhan, Babbush, Ryan, Chen, Changyou, Skeel, Robert~D, and
 Duane, Simon, Kennedy, Anthony~D, Pendleton, Brian~J, and Roweth, Duncan.
 \newblock Hybrid monte carlo.
 \newblock \emph{Physics letters B}, 195\penalty0 (2):\penalty0 216--222, 1987.
+
+\bibitem[Ehrlich et~al.(2013)Ehrlich, Jasra, and Kantas]{Ehrlich2013}
+Ehrlich, Elena, Jasra, Ajay, and Kantas, Nikolas.
+\newblock Gradient free parameter estimation for hidden markov models with
+  intractable likelihoods.
+\newblock \emph{Methodology and Computing in Applied Probability}, pp.\  1--35,
+  2013.
 
 \bibitem[Fan et~al.(2013)Fan, Nott, and Sisson]{fan:2013}
 Fan, Yanan, Nott, David~J, and Sisson, Scott~A.
@@ -73,10 +80,22 @@ Meeds, Edward and Welling, Max.
   computation.
 \newblock \emph{Uncertainty in AI}, 2014.
 
+\bibitem[Murray \& Elliott(2012)Murray and Elliott]{Murray2012}
+Murray, Iain and Elliott, Lloyd~T.
+\newblock Driving markov chain monte carlo with a dependent random stream.
+\newblock \emph{arXiv:1204.3187}, 2012.
+
 \bibitem[Neal(2011)]{neal2011mcmc}
 Neal, Radford~M.
 \newblock Mcmc using hamiltonian dynamics.
 \newblock \emph{Handbook of Markov Chain Monte Carlo}, 2, 2011.
+
+\bibitem[Neal(2012)]{Neal2012}
+Neal, Radford~M.
+\newblock How to view an mcmc simulation as a permutation, with applications to
+  parallel simulation and improved importance sampling.
+\newblock \emph{Technical Report No. 1201, Dept. of Statistics, University of
+  Toronto}, 2012.
 
 \bibitem[Sisson et~al.(2007)Sisson, Fan, and Tanaka]{sisson2007sequential}
 Sisson, SA, Fan, Y, and Tanaka, Mark~M.
@@ -102,6 +121,13 @@ Spall, James~C.
   method.
 \newblock \emph{Automatic Control, IEEE Transactions on}, 45\penalty0
   (10):\penalty0 1839--1853, 2000.
+
+\bibitem[Spall(2005)]{spall2005monte}
+Spall, James~C.
+\newblock Monte carlo computation of the fisher information matrix in
+  nonstandard settings.
+\newblock \emph{Journal of Computational and Graphical Statistics}, 14\penalty0
+  (4), 2005.
 
 \bibitem[Turner \& Sederberg(2014)Turner and Sederberg]{TurnerGenLik2014}
 Turner, Brandon~M. and Sederberg, Per~B.

@@ -38,6 +38,19 @@
 %\usepackage[export]{adjustbox}
 %\include{cdefs}
 
+% For algorithms
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+% As of 2011, we use the hyperref package to produce hyperlinks in the
+% resulting PDF.  If this breaks your system, please commend out the
+% following usepackage line and replace \usepackage{icml2014} with
+% \usepackage[nohyperref]{icml2014} above.
+%\usepackage{hyperref}
+% Packages hyperref and algorithmic misbehave sometimes.  We can fix
+% this with the following command.
+%\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
 % Leave date blank
 \date{}
 
@@ -263,26 +276,92 @@ By adding a friction term $\Bv$ to $\Delta \rhov$ proportional to $\varv_{\theta
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{HAMILTONIAN ABC}\label{sec:habc}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-In the application of stochastic gradient Hamiltonian dynamics to ABC, the stochasticity of the gradient due to batch sizes is instead caused by two other factors.  The first factor, is due to the finite number of forward simulations that are used to approximate the log-likelihood function.  We will explain below how to perform ABC gradient estimates based on finite difference approximations on two log-likelihood formulations: the $\epsilon$-kernel density model and on a Gaussian conditional model, both are based on $S$ random simulations.  The second factor is due to the dimension of $D$.  For large $D$, a finite difference estimate requires $2p$ forward simulations for each random simulation, by using a further stochastic approximation to the gradient, called Simultaneous Perturbation Stochastic Approximation (SPSA) \cite{spall}, an unbiased estimate of the gradient can computed with $2q$ forward simulations, where $ \geq 1$ and usually $Q \ll D$.
+The general approach of applying Hamiltonian dynamics to ABC requires choosing one of the SGHD algorithms and then plugging in the ABC gradient approximation $\nabla \hat{U}(\thetav)$.  With this in mind we leave the details of the Hamiltonian updates to previous work \cite{welling2011bayesian,chen2014stochastic,ding2014bayesian} and focus on the details of how stochastic gradients are computed in the likelihood-free setting.
 
-To begin, we define $\thetavplusd = \thetav + c \Deltavd$ and $\thetavminusd = \thetav + c \Deltavd$, where $c$ is a small positive scalar, e.g. $c=0.001$, and $\Deltavd$ is a vector of size $D$ that, for FD estimates is $1$ for entry $d$ and $0$ otherwise.  Our gradient estimate require simulating $S$ times at $\thetavplus$ and $\thetavminus$, generating sets of pseudo-data $\{ \xplussd \}$ and $\{ \xminussd \}$.  These are then plugged into the log-likelihood estimate for $\y$, which we call $\mathcal{L}$:
+\subsection{Deterministic Representations of Simulations}
+Implicit in each simulation run $\x \simsim \pi(\x | \thetav)$ is a sequence if internally generated random numbers that are used to produce random draws from $\pi(\x | \thetav)$.  These random numbers are important to HABC because we wish to control the stochasticity of the simulator when computing its gradient.  Furthermore, we will control the random numbers over multiple time steps.  Instead of keeping track of random numbers, we can equivalently keep a vector of $S$ random seeds $\omegav$.  This allows HABC to treat the simulation function $\pi(\x|\thetav)$ as a blackbox, outside of which we can control the random number generator (RNG), and represent $\x^{(s)}$ as the output of a deterministic function; i.e.  $\x^{(s)} = f( \thetav, \omega_s)$ instead of $\x^{(s)} \simsim \pi(\x | \thetav)$.   We include $\omegav$ as part of the state of our Markov chain.
+
+\subsection{Kernel-$\eps$ versus Synthetic-likelihood -based Gradients}
+In Section~\ref{sec:abc} we showed that the synthetic-likelihood representation of $\lleps(\thetav)$ is less sensitive to small choices of $\epsvec$.  This is particularly important to HABC as our gradient approximations are proportional to differences in $\lleps(\thetav)$; if the variance of the stochastic gradients is too high, then we must choose a very small step-size $\eta$, eliminating the usefulness of HMC for ABC.  Under the deterministic representation of $\x^{(s)}$, we can write the loglikelihoods
 \begin{eqnarray}
-  \frac{\partial \mathcal{L}(\thetav)}{\partial \thetavd} & \approx & \frac{\mathcal{L}(\thetavplusd)- \mathcal{L}(\thetavminusd)}{2c}
+ \lleps(\thetav) & \propto & \log \sum_s \mathcal{N}( \y | f( \thetav, \omega_s), \eps^2 )\\
+                 & \approx & -\log \eps -\frac{1}{2 \eps^2} ( \y - f( \thetav, \omega_m) )^2 
 \end{eqnarray}
+In the second line we have again assumes $\eps$ is very small and $m$ is the index of the random seed producing the closest simulation to $\y$.  For a finite difference approximation, $\partial \lleps(\thetav)/\partial\thetav$ is
+\begin{equation}
+ \frac{1}{4\dtheta \eps^2} \lp ( \y - f( \thetav-\dtheta, \omega_m^-) )^2 -( \y - f( \thetav + \dtheta, \omega_m^+) )^2 \rp
+\end{equation}
 
-For the $\epsilon$-kernel density model
-% ,
+On the other hand, the synthetic-likelihood is stable; using deterministic representation, 
+\begin{equation}
+\mu_{\thetav} = \frac{1}{S} \sum_s f( \thetav, \omega_s ) ~~~~~~~~~~~~~ \sigma^s_{\thetav} = \frac{1}{S-1} \sum_s ( \mu_{\thetav} - f( \thetav, \omega_s ) )^2
+\end{equation}
+the gradients (for a 1-dim problem) use $\eps$ as a smoothness prior in $\partial \lleps(\thetav)/\partial\thetav$:
+\begin{equation}
+  -\frac{1}{2}\log\lp\frac{\sigma_{\theta^+}^2 + \eps^2}{\sigma_{\theta^-}^2 + \eps^2}\rp -\frac{( \y - \mu_{\thetav^+} )^2 }{2 (\sigma^2_{\thetav^+} + \eps^2 )} +\frac{( \y - \mu_{\thetav^-} )^2 }{2 (\sigma^2_{\thetav^-} + \eps^2 )} 
+\end{equation} 
+
+\begin{figure}[t]
+\vskip 0.2in
+\begin{center}
+\includegraphics[width=0.95\columnwidth]{./images/exp_varg_figure.pdf}
+\caption{\small{Variance of gradient estimation using kernel-$\eps$ and SL for different values of $S\in\{5,50\}$ and fixed $\eps = 0.37$ (the same used in the other results).  For kernel-$\eps$, $\varv(\thetav_{\text{MAP}}) = 6.7 \pm 131.5$ and $\varv(\thetav_{\text{MAP}}) = 6.9 \pm 18.9$ (for $S=5$ and $S=50$, respectively).  For SL,$\varv(\thetav_{\text{MAP}}) = 6.35 \pm 42.4$ and $\varv(\thetav_{\text{MAP}}) = 0.62 \pm 5.2$ (for $S=5$ and $S=50$, respectively).  The ``true'' ABC gradient at $\thetav_{\text{MAP}}$ is $0.26$.  The ``true'' ABC loglikelihood is based on a Gaussian approximation (smoothed by $\eps$), with mean and variance set by moment matching with the true Gamma distribution (the sum of $N$ exponentials). Not only does kernel-$\eps$ keep a high variance for even large $S$, it seems to have a bias in its gradient estimate.  [look into this?] }}
+\label{fig:exp-varg}
+\end{center}
+\vskip -0.2in
+\end{figure}
+
+\subsection{From Finite Differences to Simultaneous Perturbations}
+\input{algo_fdsa_abc}
+Algorithm~\ref{algo:fdsa} shows the {\em finite difference stochastic approximation} (FDSA) \cite{kiefer1952stochastic} to $\nabla U(\thetav)$ as a function of random seeds $\omegav$.  Note we have deliberately shown the deterministic simulations ($f$) outside of $\lleps$ to emphasize its dependence on $\x$.  The number of simulations required for FDSA is $2 S D$, which may be acceptable for some small ABC problems.  Our goal is to scale ABC to high-dimensions and for that we need an alternative stochastic approximation of $\nabla U(\thetav)$.
+
+In the gradient-free setting, Spall \cite{spall1992multivariate, spall2000adaptive} provides a stochastic approximate to the true gradient using only $2$ forward simulations for any dimension $D$ (though the approximation can be improved by averaging $R$ estimates).  Spall's {\em simultaneous perturbation stochastic approximation} (SPSA) algorithm works as follows. Let $L$ be the gradient-free function we wish to optimize.  Each approximation randomly generates a {\em perturbation mask} (our name) $\Deltav$ of dimension $D=|\thetav|$ where entry $\deltad \sim \text{Bernouilli}(1/2)$ (actually, values $\pm 1$, not $0/1$).  Then $L$ is evaluated at $\thetav+\dtheta \Deltav$ and $\thetav-\dtheta \Deltav$, giving the gradient approximation $\gradvest(\thetav) \approx \partial L(\thetav) / \partial \thetav$:
+\begin{equation}
+  \gradvest(\thetav) = \frac{L\lp\thetav+\dtheta \Deltav\rp - L\lp\thetav-\dtheta \Deltav\rp}{2 \dtheta} \begin{bmatrix} 
+                                   1/\Delta_1 \\
+                                   1/\Delta_2 \\
+                                   \vdots \\
+                                   1/\Delta_D \\
+                                \end{bmatrix}
+\end{equation}
+If we let $\gradvest_r(\thetav)$ be the estimate using perturbation mask $\Deltav_r$, the estimate $\gradvest(\thetav)$ can be improved by averaging $\gradvest(\thetav) = 1/R \sum_r \gradvest_r(\thetav)$.
+Algorithm~\ref{algo:spsa} shows SPSA to estimate $\nabla U(\thetav)$.  The number of simulations required for SPSA is $2 S R$, where $R \geq 1$.
+\input{algo_spsa_abc}
+
+Variations of SPSA include {\em one-sided} SPSA \cite{spall2000adaptive} (we use what Spall calls 2SPSA) and an algorithm for estimating the Hessian based on the same principal as SPSA \cite{spall2005monte}.   The one-sided version is attractive computationally, but for HABC, the updates for $\thetav$ require simulating two-sides anyway, so using 2SPSA makes more sense.  SPSA has also been used within a procedure for maximum-likelihood estimation for hidden Markov models using ABC \cite{Ehrlich2013}.
+
+\subsection{Sticky Random Numbers}
+An obvious use of common random numbers, as previously demonstrated for SPSA \cite{kleinman1999simulation}, is within the gradient approximation so that the noise from the simulator has less of an influence that $\dtheta$.  In addition to this use, we have found that using the same random seeds over multiple time-steps improves the performance of HABC (TBD).  This is very similar to using dependent random streams to drive MCMC \cite{Murray2012,Neal2012}, the main difference we believe is that we are using the Hamiltonian dynamics to drive proposal in $\thetav$ and using $\omegav$ to give persistent simulations, reducing the variance from the unknown simulator noise function.
+
+Our updates for $\omegav$ are simple.  At each time step $t$, each seed is refreshed to a new random value with probability $\gamma$, i.e. $\omega_s \leftarrow \omega_s$ with probability $\gamma$, and $\omega_s \leftarrow \mathcal{U}(1,W)$, where $W=10^8$ in our algorithms.  By observing the simulation at different $\thetav$ but using same seeds, we can eliminate much of the simulator noise from the Markov chain.  By treating $\omegav$ as part of the state of the Markov chain, we can smoothly move along noiseless outputs for several iterations and then propose new seeds.  Though proposing new seeds produces a valid Metropolis-Hastings algorithm (keeping $\thetav$ fixed and changing $\omegav$), we found that using {\em sticky} random seeds works well.  These seeds can be precomputed before the chain is run and can be seen as apart from the state of the Markov chain.  [CONFUSING]
+
+[We may want anti-thetic instead of CRNs, ie overrelax versus underrelax, etc.]
+% [CITE NEAL How to view an MCMC...]
+% Another variance reduction technique called the method of {\em common random numbers} (CRN) \cite{kleinman1999simulation} sets a common seed for the random number generator (RNG) for both calls to the simulator.  This technique can remove the effect of the simulator noise in the gradient estimate, leaving on the randomness of the perturbation masks as the source of noise. Consider using SPSA instead of SGD: the CRN technique is equivalent of using the same batch of data vectors to evaluate the log-likelihood which is a sensible approach.
+%
+%
+% [By observing the simulation at different theta but same seeds, we can eliminate much of the noise in the markov chain.  By treating omega as part of the state, we can smoothly move along noiseless outputs for several iterations and then step.]
+
+% In the application of stochastic gradient Hamiltonian dynamics to ABC, the stochasticity of the gradient due to batch sizes is instead caused by two other factors.  The first factor, is due to the finite number of forward simulations that are used to approximate the log-likelihood function.  We will explain below how to perform ABC gradient estimates based on finite difference approximations on two log-likelihood formulations: the $\epsilon$-kernel density model and on a Gaussian conditional model, both are based on $S$ random simulations.  The second factor is due to the dimension of $D$.  For large $D$, a finite difference estimate requires $2p$ forward simulations for each random simulation, by using a further stochastic approximation to the gradient, called Simultaneous Perturbation Stochastic Approximation (SPSA) \cite{spall}, an unbiased estimate of the gradient can computed with $2q$ forward simulations, where $ \geq 1$ and usually $Q \ll D$.
+
+% To begin, we define $\thetavplusd = \thetav + c \Deltavd$ and $\thetavminusd = \thetav + c \Deltavd$, where $c$ is a small positive scalar, e.g. $c=0.001$, and $\Deltavd$ is a vector of size $D$ that, for FD estimates is $1$ for entry $d$ and $0$ otherwise.  Our gradient estimate require simulating $S$ times at $\thetavplus$ and $\thetavminus$, generating sets of pseudo-data $\{ \xplussd \}$ and $\{ \xminussd \}$.  These are then plugged into the log-likelihood estimate for $\y$, which we call $\mathcal{L}$:
 % \begin{eqnarray}
-%   \mathcal{L}(\thetavpmd) & = & \log \sum_{s=1}^2 \mathcal{N}( \y | f( \thetavpmd, \omega_s ), \eps^2 ) \\
-%                           & = & \log \mathcal{N}( \y | f( \thetavpmd, \omega_{m} ), \eps^2 ) + \log\lp 1 + H_d \rp \\
-%                           & \approx & \log \mathcal{N}( \y | f( \thetavpmd, \omega_{m} ), \eps^2 ) + 0
+%   \frac{\partial \mathcal{L}(\thetav)}{\partial \thetavd} & \approx & \frac{\mathcal{L}(\thetavplusd)- \mathcal{L}(\thetavminusd)}{2c}
 % \end{eqnarray}
-% where we replaced the random variable $\x$ with a deterministic function $f( \thetavpmd, \omega_s )$ (i.e.  the simulator run at $\thetavpmd$ using the random state $\omega_s$, such that $\xpmd = f( \thetavpmd, \omega_s )$). In the second line we have pulled out the value from the random state $m$ which has the maximum log-likelihood (i.e. is closest to $\y$) and used $H_d$ (sum of terms $<0$ and $\ll 0$ for small $\eps$), and in the last line simplified further by assuming small $\eps$, so that the log-likelihood is dominated by a single simulation closest to $\y$.
-it is easy to show that the gradient estimate is sensitive to $\epsilon$ in this case: 
-\begin{eqnarray}
-  \frac{\partial \mathcal{L}(\thetav)}{\partial \thetavd} & \approx & \frac{1}{2c\eps^2}\lp -\frac{1}{2}(\y-\xplussd)^2 + \frac{1}{2}(\y-\xminussd)^2  \rp
-\end{eqnarray}
-So by making $\epsilon$ arbitrarily small we can make the gradient extremely sensitive to our simulations.  Intuitively, we want the gradient to be fairly stable no matter what values of $\epsilon$ we use.  To do this we will replace log-likelihood with a conditional model.
+
+% For the $\epsilon$-kernel density model
+% % ,
+% % \begin{eqnarray}
+% %   \mathcal{L}(\thetavpmd) & = & \log \sum_{s=1}^2 \mathcal{N}( \y | f( \thetavpmd, \omega_s ), \eps^2 ) \\
+% %                           & = & \log \mathcal{N}( \y | f( \thetavpmd, \omega_{m} ), \eps^2 ) + \log\lp 1 + H_d \rp \\
+% %                           & \approx & \log \mathcal{N}( \y | f( \thetavpmd, \omega_{m} ), \eps^2 ) + 0
+% % \end{eqnarray}
+% % where we replaced the random variable $\x$ with a deterministic function $f( \thetavpmd, \omega_s )$ (i.e.  the simulator run at $\thetavpmd$ using the random state $\omega_s$, such that $\xpmd = f( \thetavpmd, \omega_s )$). In the second line we have pulled out the value from the random state $m$ which has the maximum log-likelihood (i.e. is closest to $\y$) and used $H_d$ (sum of terms $<0$ and $\ll 0$ for small $\eps$), and in the last line simplified further by assuming small $\eps$, so that the log-likelihood is dominated by a single simulation closest to $\y$.
+% it is easy to show that the gradient estimate is sensitive to $\epsilon$ in this case:
+% \begin{eqnarray}
+%   \frac{\partial \mathcal{L}(\thetav)}{\partial \thetavd} & \approx & \frac{1}{2c\eps^2}\lp -\frac{1}{2}(\y-\xplussd)^2 + \frac{1}{2}(\y-\xminussd)^2  \rp
+% \end{eqnarray}
+% So by making $\epsilon$ arbitrarily small we can make the gradient extremely sensitive to our simulations.  Intuitively, we want the gradient to be fairly stable no matter what values of $\epsilon$ we use.  To do this we will replace log-likelihood with a conditional model.
 %
 % A better way of approximating the gradient is to use a conditional model of $\pi(\x|\thetav)$, for example a conditional kernel density estimate \cite{TurnerGenLik2014} or a conditional Gaussian model \cite{wood2010statistical}.  While either approach should be adequate and both have their own limits and advantages, for this discussion we will use a Gaussian estimate.  In ABC, using a conditional Gaussian model for  $\pi(\x|\thetav)$ is called a {\em synthetic likelihood} (SL) model \cite{wood2010statistical}.  For a SL log-likelihood model, we compute estimators of the first and second moments of $\pi(\x|\thetav)$.  For Gaussian $\epsilon$-kernel, we can convolve the two densities
 % \begin{eqnarray}
@@ -290,69 +369,65 @@ So by making $\epsilon$ arbitrarily small we can make the gradient extremely sen
 %   \mu_{\thetavpm}, \sigma^2_{\thetavpm} ) d\x \\
 %                           & = & \log \mathcal{N}( \y | \mu_{\thetavpm}, \sigma^2_{\thetavpm} \eps^2 )
 % \end{eqnarray}
-We can see that $\epsilon$ now can be set very small as it now acts as a smoother for our estimate, resulting in a robust gradient.
+% We can see that $\epsilon$ now can be set very small as it now acts as a smoother for our estimate, resulting in a robust gradient.
  
-\subsection{Gradients in High Dimensions}
+%\subsection{Gradients in High Dimensions}
 
 %\subsection{Spall's method: SPSA}
-In the gradient-free setting, Spall \cite{spall1992multivariate} provides a stochastic approximate to the true gradient using only 2 forward simulations (function evaluations).  This is in contrast to multivariate finite-difference stochastic approximation FDSA \cite{kiefer1952stochastic} requiring $2p$ evaluations.  
+% In the gradient-free setting, Spall \cite{spall1992multivariate} provides a stochastic approximate to the true gradient using only 2 forward simulations (function evaluations).  This is in contrast to multivariate finite-difference stochastic approximation FDSA \cite{kiefer1952stochastic} requiring $2p$ evaluations.
+%
+% The gradient estimate is
+% \begin{equation}
+%   \gradestimate{t}{\thetav_t} = \begin{bmatrix}
+%                                    \frac{\feval{t}{+} - \feval{t}{-}}{2 \cstep{t}{1} \dstep{t}{1}} \\
+%                                    \vdots \\
+%                                    \frac{\feval{t}{+} - \feval{t}{-}}{2 \cstep{t}{p} \dstep{t}{p}} \\
+%                                 \end{bmatrix}
+% \end{equation}
+% where $\cstep{t}{p}$ is a step-size that is usually constant for all dimensions $p$, but can be different (as shown in this case); $\dstep{t}{p} \in {-1, +1}$ is a {\em perturbation mask} (called symmetric Bernouilli variables by Spall), i.e. $\dstep{t}{p} \sim 2*\text{Bernouilli}(0.5) - 1$; and  $\feval{t}{\pm}$ are function evaluations:
+% \begin{eqnarray}
+%   \feval{t}{+} &= \loglik{\thetav + \cstepconst{t}\dstepconst{t}} \\
+%   \feval{t}{-} &= \loglik{\thetav - \cstepconst{t}\dstepconst{t}}
+% \end{eqnarray}
+% A way of reducing the noise in the gradient is by averaging over $q$ draws of $\dstepconst{t}$:
+% \begin{equation}
+%   \gradestimate{t}{\thetav_t} = \frac{1}{q} \sum_{j=1}^q \gradestimaterepeat{t}{\thetav_t}{j}
+% \end{equation}
+% where for each $j$ new perturbation masks are drawn.
+%
 
-The gradient estimate is
-\begin{equation}
-  \gradestimate{t}{\thetav_t} = \begin{bmatrix} 
-                                   \frac{\feval{t}{+} - \feval{t}{-}}{2 \cstep{t}{1} \dstep{t}{1}} \\
-                                   \vdots \\
-                                   \frac{\feval{t}{+} - \feval{t}{-}}{2 \cstep{t}{p} \dstep{t}{p}} \\
-                                \end{bmatrix}
-\end{equation}
-where $\cstep{t}{p}$ is a step-size that is usually constant for all dimensions $p$, but can be different (as shown in this case); $\dstep{t}{p} \in {-1, +1}$ is a {\em perturbation mask} (called symmetric Bernouilli variables by Spall), i.e. $\dstep{t}{p} \sim 2*\text{Bernouilli}(0.5) - 1$; and  $\feval{t}{\pm}$ are function evaluations:
-\begin{eqnarray}
-  \feval{t}{+} &= \loglik{\thetav + \cstepconst{t}\dstepconst{t}} \\
-  \feval{t}{-} &= \loglik{\thetav - \cstepconst{t}\dstepconst{t}}
-\end{eqnarray}
-A way of reducing the noise in the gradient is by averaging over $q$ draws of $\dstepconst{t}$:
-\begin{equation}
-  \gradestimate{t}{\thetav_t} = \frac{1}{q} \sum_{j=1}^q \gradestimaterepeat{t}{\thetav_t}{j}
-\end{equation}
-where for each $j$ new perturbation masks are drawn.
-  
+ 
 
-For ABC, the gradients we compute are stochastic because we must approximate $\pi(\x | \thetav)$ with forward simulations.  We can make the approximation arbitrarily good by running more simulations, but this is often unnecessary for sampling, because we can make use of the uncertainty in our current approximation to decide if our sample is correct or not (cite UAI2014?).  
+% \subsection{Stochastic ABC Gradients}
+% For low-dimensional problems a finite difference (FD) approximation to $\nabla U$.  For each dimension $p$, forward simulate for each random seed twice at plus $c$ and minus $c$ (only along dimension $p$): $x_{\pm}^{(s)} \sim \pi( \x | \thetav \pm c \Delta_p, \omega_s)$.  These simulations are then plugged into the appropriate estimator (logsumsexp or SL).  $\hat{U}_{K_{\eps}}$:
+% \begin{eqnarray}
+%   - \log \pi(\thetav \pm c \Delta_p) - \log \sum_s \pi_{\eps}(\y | f( \thetav \pm c \Delta_p, \omega_s ) )
+% \end{eqnarray}
+% or $\hat{U}_{SL}$
+% \begin{eqnarray}
+%   - \log \pi(\thetav \pm c \Delta_p) - \log \mathcal{N}(\y | \mu_{\thetav \pm c \Delta_p}, \sigma^2_{\thetav \pm c \Delta_p} + \eps^2 )
+% \end{eqnarray}
+%
+%
+% \begin{eqnarray}
+%   \hat{U}(\thetav)       & = & - \log \pi(\thetav) - \log \pi_{\eps}(\y | \thetav ) \\
+%   \nabla\hat{U}(\thetav) & = & - \nabla \log \pi(\thetav) - \frac{N}{n} \sum_{i=h_1}^{h_n} \nabla \log \pi(\yi | \thetav )
+% \end{eqnarray}
 
-\begin{itemize}
-  \item In both cases, we rewrite the expression conditioning on a set of random seeds omega.  Explain the reason for this.  By observing the simulation at different theta but same seeds, we can eliminate much of the noise in the markov chain.  By treating omega as part of the state, we can smoothly move along noiseless outputs for several iterations and then step.
-\end{itemize}
-
-\subsection{Stochastic ABC Gradients}
-For low-dimensional problems a finite difference (FD) approximation to $\nabla U$.  For each dimension $p$, forward simulate for each random seed twice at plus $c$ and minus $c$ (only along dimension $p$): $x_{\pm}^{(s)} \sim \pi( \x | \thetav \pm c \Delta_p, \omega_s)$.  These simulations are then plugged into the appropriate estimator (logsumsexp or SL).  $\hat{U}_{K_{\eps}}$:
-\begin{eqnarray}
-  - \log \pi(\thetav \pm c \Delta_p) - \log \sum_s \pi_{\eps}(\y | f( \thetav \pm c \Delta_p, \omega_s ) )
-\end{eqnarray}   
-or $\hat{U}_{SL}$
-\begin{eqnarray}
-  - \log \pi(\thetav \pm c \Delta_p) - \log \mathcal{N}(\y | \mu_{\thetav \pm c \Delta_p}, \sigma^2_{\thetav \pm c \Delta_p} + \eps^2 )
-\end{eqnarray}
+%\subsection{Common Random Numbers}
 
 
-\begin{eqnarray}
-  \hat{U}(\thetav)       & = & - \log \pi(\thetav) - \log \pi_{\eps}(\y | \thetav ) \\
-  \nabla\hat{U}(\thetav) & = & - \nabla \log \pi(\thetav) - \frac{N}{n} \sum_{i=h_1}^{h_n} \nabla \log \pi(\yi | \thetav ) 
-\end{eqnarray} 
+% Using the same parameter vector $\thetav$ but different random seeds:
+% \begin{eqnarray}
+%   \pi\lp \y | \thetav \rp & = &  \int \pi_{\epsvec}\lp \y | \x \rp \pi\lp \x | \thetav \rp d \x \\
+%    & \approx & \frac{1}{S} \sum_{s=1}^S \pi_{\epsvec}\lp \y | \x^{(s)} \rp
+% \end{eqnarray}
+% where $\x^{(s)} = \pi\lp \x | \thetav, \omega_s \rp$. 
 
-\subsection{Common Random Numbers}
-
-[CITE NEAL How to view an MCMC...]
-Another variance reduction technique called the method of {\em common random numbers} (CRN) \cite{kleinman1999simulation} sets a common seed for the random number generator (RNG) for both calls to the simulator.  This technique can remove the effect of the simulator noise in the gradient estimate, leaving on the randomness of the perturbation masks as the source of noise. Consider using SPSA instead of SGD: the CRN technique is equivalent of using the same batch of data vectors to evaluate the log-likelihood which is a sensible approach.
-
-Using the same parameter vector $\thetav$ but different random seeds:
-\begin{eqnarray}
-  \pi\lp \y | \thetav \rp & = &  \int \pi_{\epsvec}\lp \y | \x \rp \pi\lp \x | \thetav \rp d \x \\
-   & \approx & \frac{1}{S} \sum_{s=1}^S \pi_{\epsvec}\lp \y | \x^{(s)} \rp
-\end{eqnarray}
-where $\x^{(s)} = \pi\lp \x | \thetav, \omega_s \rp$.  Note we have passed a unique random seed $\omega_s$ into the simulator, making $\x^{(s)}$ a deterministic function of the simulator with parameters $\{\thetav, \omega_s\}$.  It will be useful to rewrite this deterministic simulator function as $f$: $\x^{(s)} = f\lp \thetav, \omega_s \rp$, allowing us to rewrite the likelihood as
-\begin{eqnarray}
-  \pi\lp \y | \thetav \rp & \approx & \frac{1}{S} \sum_{s=1}^S \pi_{\epsvec}\lp \y | f\lp \thetav, \omega_s \rp \rp
-\end{eqnarray}
+% Note we have passed a unique random seed $\omega_s$ into the simulator, making $\x^{(s)}$ a deterministic function of the simulator with parameters $\{\thetav, \omega_s\}$.  It will be useful to rewrite this deterministic simulator function as $f$: $\x^{(s)} = f\lp \thetav, \omega_s \rp$, allowing us to rewrite the likelihood as
+% \begin{eqnarray}
+%   \pi\lp \y | \thetav \rp & \approx & \frac{1}{S} \sum_{s=1}^S \pi_{\epsvec}\lp \y | f\lp \thetav, \omega_s \rp \rp
+% \end{eqnarray}
 
 % \subsection{Conditional Density Estimators}
 % [TODO: TAKEN FROM POPE]  When the simulator is fast and stochastic, it can be beneficial to the inference procedure to build a local, conditional model of the distribution $\pi(\y|\thetav)$ using $S$ simulator responses in $\yone, \ldots, \yS \overset{\simulator}{\sim} \pi( \y | \thetav)$.
@@ -370,16 +445,39 @@ where $\x^{(s)} = \pi\lp \x | \thetav, \omega_s \rp$.  Note we have passed a uni
 % Modeling the response by only the first two moments may be inadequate due to multi-modality, asymmetric noise, etc.   For such cases a \emph{conditional KDE} (kernel density estimate) response model can by used.  In \cite{TurnerGenLik2014} this approach is shown to be superior to conditional Gaussians for certain computational psychology models.  Note that for Gaussian kernels the conditional KDE is very similar to kernel ABC, but has additional flexibility of adaptively choosing bandwidths (rather than the fixed $\epsvec$ in kernel ABC).
 % [TODO: END TAKEN FROM POPE]
 
-
-  
-
-\subsection{Algorithms}
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Demonstration}\label{sec:demo}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [FROM UAI] In this illustrative problem we infer the rate of an exponential distribution under a gamma prior with shape $\alpha$ and rate $\beta$, having $N$ observations at the true rate $\theta^{\star}$; this is the {\em exponential example} in \cite{turner2012tutorial}.  Let $\w$ be a vector of $N$ draws from an exponential distribution, i.e. $w_n \sim \expdist(\theta)$.  The posterior is a gamma distribution with shape $\alpha+N$ and rate $\beta + \sum w_n$.  To use this problem with ABC, we use the exponential draws as the simulator and the mean of $\w$ as the statistic $y$ and assume that $N$ is known.  The inference problem is therefore to sample from $p( \theta | y, \alpha, \beta, N )$.
+
+\begin{figure}[t]
+\vskip 0.2in
+\begin{center}
+\includegraphics[width=0.95\columnwidth]{./images/exp_crn_figure.pdf}
+\caption{\small{A view of a simulator in terms of common random numbers.  The horizontal line represents $\y$ and red shading $\pm 2\eps$.  The shaded curved region represents $2\sigma$ of $\pi(\x|\thetav)$.  The dashed lines are $f(\thetav, \omega_s)$ for several values of $\omega$.  The blue circles are potential random samples from $\pi(\x|\thetav)$.  For a fixed value $\omega_s$, the simulator produces deterministic outputs that change smoothly, even though the simulator itself is quite noisy.}}
+\label{fig:exp-crns}
+\end{center}
+\vskip -0.2in
+\end{figure} 
+
+ 
+
+\begin{figure*}[t]
+\vskip 0.2in
+\setlength{\linewidth}{\textwidth}
+\setlength{\hsize}{\textwidth}
+\begin{center}
+\includegraphics[width=0.5\columnwidth]{./images/exp-ABC-MCMC-posterior_hist.pdf}
+\includegraphics[width=1.2\columnwidth]{./images/exp-ABC-MCMC-theta-timeseries.pdf}
+\includegraphics[width=0.5\columnwidth]{./images/exp-SG-Langevin-posterior_hist.pdf}
+\includegraphics[width=1.2\columnwidth]{./images/exp-SG-Langevin-theta-timeseries.pdf}
+\includegraphics[width=0.5\columnwidth]{./images/exp-SG-Thermostats-posterior_hist.pdf}
+\includegraphics[width=1.2\columnwidth]{./images/exp-SG-Thermostats-theta-timeseries.pdf}
+\caption{\small{}}
+\label{fig:exp-posteriors}
+\end{center}
+\vskip -0.2in
+\end{figure*} 
 
 \subsection{First order CRNs}
 Using same seed in a gradient estimate at time $t$ (versus not using them).  This is makes sense if we compare to SG-data where a single batch is used for computing the gradient.  If a FD method was used, we would use the same batch.
@@ -442,6 +540,7 @@ results: convergence of training error (batches), convergence in test error usin
 \begin{itemize}
   \item New set of ABC algorithms for efficient exploration of posterior distribution.
   \item Key: opens the door to high-dimensional ABC inference.
+  \item [Test for more accurate gradients] For ABC, the gradients we compute are stochastic because we must approximate $\pi(\x | \thetav)$ with forward simulations.  We can make the approximation arbitrarily good by running more simulations, but this is often unnecessary for sampling, because we can make use of the uncertainty in our current approximation to decide if our sample is correct or not (cite UAI2014?). 
 \end{itemize}
 
 A further complication, which we do not address on this paper, is the forward simulation might be, and for many interesting problems is, expensive.  We would therefore prefer to resort to some sort of surrogate modeling \cite{Meeds2014GpsUai,wilkinson:2014, michael} to avoid simulations whenever possible. We address this scenario in Section~\ref{future}.  Shown for relatively fast simulators.  Extensions to surrogates with GPS (Meeds2014GpsUai, rasmussen:2003, wilkinson:2014) can use derivative of GP for likelihood as GP of gradient.  These could be matched by occasional gradient estimates (Osborne).

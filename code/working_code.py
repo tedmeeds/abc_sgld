@@ -5,6 +5,76 @@ import pylab as pp
 
 max_int_for_omega = 10**8
 
+def bin_errors_1d( bins, true_centered_probability, samples ):
+  N = len(samples)
+  cnts, bins = np.histogram( samples ,bins=bins)
+  
+  n = cnts.sum()
+  
+  probability = cnts / (float(N))
+  
+  missed = N - n
+  
+  double_error = np.sum(np.abs( true_centered_probability - probability )) + missed/float(N)
+  
+  #pdb.set_trace()
+  return double_error/2.0
+
+def cramer_vonMises_criterion( true_P, samples, bins ):
+  # see wiki cramer_von_Mises
+  N = len(samples)
+  cnts, bins = np.histogram( samples ,bins=bins)
+  
+  n = cnts.sum()
+  
+  est_P = cnts / (float(N))
+  
+  # for samples outside bins, we assume true_P is zeros
+  missed = N - n
+  
+  discrete_cvm_error = np.sum( ( true_P - est_P)**2) + (missed/float(N))**2
+  
+  #pdb.set_trace()
+  return discrete_cvm_error
+  
+def bin_sq_errors_1d( bins, true_centered_probability, samples ):
+  N = len(samples)
+  cnts, bins = np.histogram( samples ,bins=bins)
+  
+  n = cnts.sum()
+  
+  probability = cnts / (float(N))
+  
+  missed = N - n
+  
+  double_error = np.sqrt( np.sum( ( true_centered_probability - probability)**2) + (missed/float(N))**2 )
+  
+  #pdb.set_trace()
+  return double_error/2.0
+  
+
+        
+def convergence_to_scalar( psi, psi_estimate, times ):
+  nbrEstimate = len( psi_estimate )
+  
+  T     = len(times)
+  means = np.zeros( T )
+  vrs   = np.zeros( T )
+  for time_id,t in zip(range(T),times):
+    print time_id, t
+    n = t
+    if time_id <= nbrEstimate:
+      mean_estimate = psi_estimate[:t+1].mean()
+      var_estimate  = float(1.0/(t-1))*(psi - mean_estimate)**2
+    
+      means[time_id] = mean_estimate
+      vrs[time_id]   = var_estimate
+      
+  means = means[:time_id+1]
+  vrs = vrs[:time_id+1]  
+  used_times = times[:time_id+1]  
+  return used_times, means, vrs
+
 def bounce_off_boundaries( theta, p, lower_bounds, upper_bounds ):
   D = len(theta)
   
@@ -55,8 +125,8 @@ def hamiltonian_accept( problem, theta, theta_proposal, x, x_proposal, p, p_prop
     
   return theta, x, loglike_x 
 
-def init_omega( use_omega ):
-  if use_omega is False:
+def init_omega( omega_params ):
+  if omega_params["use_omega"] is False:
     omega = None
   else:
     omega = np.random.randint(max_int_for_omega)
@@ -64,7 +134,7 @@ def init_omega( use_omega ):
   
 def omega_flip(problem, theta, x, omega, loglike_x ):
   
-  omega     = np.random.randint(10**6)
+  omega     = np.random.randint(max_int_for_omega)
   x         = problem.simulate( theta, omega )
   loglike_x = problem.loglike_x( x )
     
@@ -72,7 +142,7 @@ def omega_flip(problem, theta, x, omega, loglike_x ):
     
 def omega_sample(problem, theta, x, omega, loglike_x ):
   
-  omega_proposal     = np.random.randint(10**6)
+  omega_proposal     = np.random.randint(max_int_for_omega)
   x_proposal         = problem.simulate( theta, omega_proposal )
   loglike_x_proposal = problem.loglike_x( x_proposal )
 
@@ -105,7 +175,7 @@ def run_mcmc( problem, params, theta, x = None ):
       x = problem.simulate( theta, omega, S )
     assert len(x.shape) == 2, "x should be S by dim"
     loglike_x = problem.loglike_x( x )
-    X      = [x]
+    X      = [x.reshape( (1,S))]
     LL     = [loglike_x]
   else:
     x         = None
@@ -161,17 +231,17 @@ def run_mcmc( problem, params, theta, x = None ):
         omega = init_omega( omega_params )
     
     if keep_x:
-      x = problem.simulate( theta, omega )
+      x = problem.simulate( theta, omega, S )
       loglike_x = problem.loglike_x( x )
       LL.append(loglike_x)
-      X.append(x)
+      X.append(x.reshape( (1,S)))
     
     THETAS.append(theta)
     OMEGAS.append(omega)
     
     
     if np.mod(t+1,verbose_rate)==0:
-      print "t = %04d    loglik = %3.3f    theta = %3.3f    x = %3.3f"%(t+1,loglike_x,theta,x)
+      print "t = %04d    loglik = %3.3f    theta = %3.3f    x = %3.3f"%(t+1,loglike_x,theta[0],x[0])
       
   outputs["THETA"] = np.squeeze(np.array( THETAS))
   outputs["OMEGA"] = np.squeeze(np.array(OMEGAS))

@@ -7,10 +7,10 @@ from abc_sgld.code.working_code import *
 
 keep_x        = True 
 init_seed     = 1
-T             = 15000 # nbr of samples
+T             = 1000 # nbr of samples
 verbose_rate  = 1000
-C             = 20.01    # injected noise variance parameter
-eta           = 0.001 # step size for Hamiltoniam dynamics
+C             = 1.01    # injected noise variance parameter
+eta           = 0.01 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients
@@ -26,7 +26,7 @@ upper_bounds = np.array([np.inf])
 # ----------------------- #
 # common ransom seeds     #
 # ----------------------- #
-use_omega    = True    # use fixed random seeds for simulations
+use_omega    = False    # use fixed random seeds for simulations
 omega_rate   = 1.1    # probabilty of changing omegas
 omega_switch = False    # if true, randomly change omegas
 omega_sample = True   # sample omegas instead
@@ -68,12 +68,26 @@ if __name__ == "__main__":
   np.random.seed(init_seed + 1000*chain_id)
   
   # run algorithm
-  outs = run_thermostats( problem, params, theta0, x0 )
-  #outs = run_sghmc( problem, params, theta0, x0 )
-  #outs = run_sgld( problem, params, theta0, x0 )
-  #outs = run_mcmc( problem, params, theta0, x0 )
+  np.random.seed(init_seed + 1000*chain_id)
+  sgnht = run_thermostats( problem, params, theta0, x0 )
   
+  np.random.seed(init_seed + 1000*chain_id)
+  sghmc = run_sghmc( problem, params, theta0, x0 )
+  
+  np.random.seed(init_seed + 1000*chain_id)
+  sgld = run_sgld( problem, params, theta0, x0 )
+  
+  np.random.seed(init_seed + 1000*chain_id)
+  mcmc = run_mcmc( problem, params, theta0, x0 )
+  
+  pp.figure(1)
+  pp.clf()
+  pp.plot( mcmc["THETA"][-1000:])
+  pp.plot( sgld["THETA"][-1000:])
+  pp.plot( sghmc["THETA"][-1000:])
+  pp.plot( sgnht["THETA"][-1000:])
+  pp.legend( ["MCMC","SGLD","SGHMC","SGNHT"])
   # view results of single chain
-  problem.view_single_chain( outs )
+  #problem.view_single_chain( sgnht )
     
   pp.show()

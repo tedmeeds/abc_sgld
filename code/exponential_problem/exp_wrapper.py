@@ -1,5 +1,6 @@
 from abcpy.factories import *
 from abcpy.problems.exponential import *
+from abc_sgld.code.working_code import *
 #from sa_algorithms import *
 from scipy import stats as spstats
 import pylab as pp
@@ -7,7 +8,7 @@ import pylab as pp
 problem_params = default_params()
 
 problem_params["N"] = 50
-problem_params["q_stddev"] = 0.5
+problem_params["q_stddev"] = 0.01
 problem_params["theta_star"]      = 0.2
 problem_params["epsilon"] = 0.1*np.sqrt( 1.0 / (problem_params["N"]*problem_params["theta_star"]**2) )
 problem_params["alpha"]           = 1.0
@@ -260,7 +261,10 @@ class generate_exponential( object ):
     
     for time_id in [1,5,10,25,50,75,100,200,300,400,500,750,1000,1500,2000,3000,4000,5000,7500,10000,12500,15000,17500,20000,25000,30000,35000,40000,45000,50000]:
       if time_id <= len(thetas):
-        errs.append( bin_errors_1d(self.p.coarse_theta_range, self.p.posterior_cdf_bins, thetas[:time_id]) )
+        #errs.append( bin_errors_1d(self.p.coarse_theta_range, self.p.posterior_cdf_bins, thetas[:time_id]) )
+        er = cramer_vonMises_criterion( self.p.posterior_cdf_bins, thetas[:time_id], self.p.coarse_theta_range )
+        #errs.append( bin_sq_errors_1d(self.p.coarse_theta_range, self.p.posterior_cdf_bins, thetas[:time_id]) )
+        errs.append( er  )
         time_ids.append(time_id)
         nbr_sims.append(nsims[:time_id].sum()+at_burnin)
         
@@ -271,24 +275,27 @@ class generate_exponential( object ):
     
     f2 = pp.figure()
     sp1 = f2.add_subplot(1,3,1)
-    pp.semilogx( time_ids, errs, "bo-", lw=2)
+    pp.loglog( time_ids, errs, "bo-", lw=2)
     pp.xlabel( "nbr samples")
     pp.ylabel( "err")
     pp.grid('on')
     sp2 = f2.add_subplot(1,3,2)
-    pp.semilogx( nbr_sims, errs, "ro-", lw=2)
+    pp.loglog( nbr_sims, errs, "ro-", lw=2)
     pp.xlabel( "nbr sims")
     pp.ylabel( "err")
     pp.grid('on')
     sp3 = f2.add_subplot(1,3,3)
-    pp.semilogx( time_ids, errs, "bo-", lw=2)
-    pp.semilogx( nbr_sims, errs, "ro-", lw=2)
+    pp.loglog( time_ids, errs, "bo-", lw=2)
+    pp.loglog( nbr_sims, errs, "ro-", lw=2)
     pp.xlabel( "time")
     pp.ylabel( "err")
     pp.grid('on')
     pp.show()
     #pdb.set_trace()
-    print "ERROR    ",bin_errors_1d( self.p.coarse_theta_range, self.p.posterior_cdf_bins, thetas )
+    #print "ERROR    ",bin_errors_1d( self.p.coarse_theta_range, self.p.posterior_cdf_bins, thetas )
+    er = cramer_vonMises_criterion( self.p.posterior_cdf_bins, thetas, self.p.coarse_theta_range )
+    #print "ERROR    ",bin_sq_errors_1d( self.p.coarse_theta_range, self.p.posterior_cdf_bins, thetas )
+    print "ERROR    ",er
     #print "ACC RATE ", states_object.acceptance_rate()
     print "SIM      ", total_sims
     # return handle to figure for further manipulation

@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 from scipy import stats as spstats
 import pylab as pp
+import pdb
 
 max_int_for_omega = 10**8
 
@@ -79,13 +80,15 @@ def bounce_off_boundaries( theta, p, lower_bounds, upper_bounds ):
   D = len(theta)
   
   for d in range(D):
-    if theta[d] < lower_bounds[d]:
-      theta[d] = lower_bounds[d] + (lower_bounds[d]-theta[d]) #from Neal Handbook, p37
-      p[d] *= -1
+    if lower_bounds is not None:
+      if theta[d] < lower_bounds[d]:
+        theta[d] = lower_bounds[d] + (lower_bounds[d]-theta[d]) #from Neal Handbook, p37
+        p[d] *= -1
 
-    if theta[d] > upper_bounds[d]:
-      theta[d] = upper_bounds[d] - (theta[d]-upper_bounds[d]) #from Neal Handbook, p37
-      p[d] *= -1
+    if upper_bounds is not None:
+      if theta[d] > upper_bounds[d]:
+        theta[d] = upper_bounds[d] - (theta[d]-upper_bounds[d]) #from Neal Handbook, p37
+        p[d] *= -1
   return theta, p
   
 
@@ -142,7 +145,7 @@ def omega_switch(problem, theta, x, omega, loglike_x, omega_params ):
       any_changes = True
   
   if any_changes:
-    x         = problem.simulate( theta, omega )
+    x         = problem.simulate( theta, omega, len(omega) )
     loglike_x = problem.loglike_x( x )
     
   return theta, x, omega, loglike_x
@@ -150,7 +153,7 @@ def omega_switch(problem, theta, x, omega, loglike_x, omega_params ):
 def omega_sample(problem, theta, x, omega, loglike_x ):
   
   omega_proposal     = np.random.randint(max_int_for_omega)
-  x_proposal         = problem.simulate( theta, omega_proposal )
+  x_proposal         = problem.simulate( theta, omega_proposal, len(omega) )
   loglike_x_proposal = problem.loglike_x( x_proposal )
 
   log_acceptance =  loglike_x_proposal  \
@@ -182,7 +185,7 @@ def run_mcmc( problem, params, theta, x = None ):
       x = problem.simulate( theta, omega, S )
     assert len(x.shape) == 2, "x should be S by dim"
     loglike_x = problem.loglike_x( x )
-    X      = [x.reshape( (1,S))]
+    X      = [x.mean(1).reshape( (1,S))]
     LL     = [loglike_x]
   else:
     x         = None
@@ -236,19 +239,20 @@ def run_mcmc( problem, params, theta, x = None ):
       elif omega_params["omega_switch"]:
         # randomly switch to new omega
         theta, x, omega, loglike_x = omega_switch(problem, theta, x, omega, loglike_x, omega_params )
+        
     
     if keep_x:
       #x = problem.simulate( theta, omega, S )
       #loglike_x = problem.loglike_x( x )
       LL.append(loglike_x)
-      X.append(x.reshape( (1,S)))
+      X.append(x.mean(1).reshape( (1,S)))
     
     THETAS.append(theta)
     OMEGAS.append(omega)
     
     
     if np.mod(t+1,verbose_rate)==0:
-      print "t = %04d    loglik = %3.3f    theta = %3.3f    x = %3.3f"%(t+1,loglike_x,theta[0],x[0])
+      print "t = %04d    loglik = %3.3f    theta = %3.3f    x = %3.3f"%(t+1,loglike_x,theta[0],x[0][0])
       
   outputs["THETA"] = np.squeeze(np.array( THETAS))
   outputs["OMEGA"] = np.squeeze(np.array(OMEGAS))
@@ -349,7 +353,7 @@ def run_sgld( problem, params, theta, x = None ):
 
     if keep_x:
       # probably too many simulations
-      x = problem.simulate( theta, omega )
+      x = problem.simulate( theta, omega, S )
       loglike_x = problem.loglike_x( x )
       LL.append(loglike_x)
       X.append(x)
@@ -360,7 +364,7 @@ def run_sgld( problem, params, theta, x = None ):
     
     if np.mod(t+1,verbose_rate)==0:
       if keep_x:
-        print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0])
+        print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0][0])
       else:
         print "t = %04d    theta0 = %3.3f"%(t+1,theta[0])
       
@@ -468,7 +472,7 @@ def run_sghmc( problem, params, theta, x = None ):
         theta, x, omega, loglike_x = omega_switch(problem, theta, x, omega, loglike_x, omega_params )
 
     if keep_x:
-      x = problem.simulate( theta, omega )
+      x = problem.simulate( theta, omega, S )
       loglike_x = problem.loglike_x( x )
       LL.append(loglike_x)
       X.append(x)
@@ -586,7 +590,7 @@ def run_thermostats( problem, params, theta, x = None ):
         theta, x, omega, loglike_x = omega_switch(problem, theta, x, omega, loglike_x, omega_params )
 
     if keep_x:
-      x = problem.simulate( theta, omega )
+      x = problem.simulate( theta, omega, S )
       loglike_x = problem.loglike_x( x )
       LL.append(loglike_x)
       X.append(x)
@@ -598,7 +602,7 @@ def run_thermostats( problem, params, theta, x = None ):
     
     if np.mod(t+1,verbose_rate)==0:
       if keep_x:
-        print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0])
+        print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0][0])
       else:
         print "t = %04d    theta0 = %3.3f"%(t+1,theta[0])
       

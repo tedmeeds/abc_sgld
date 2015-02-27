@@ -68,7 +68,7 @@ def view_posterior( problem, theta_range, samples, algoname, burnin = 1000 ):
 
 keep_x        = True 
 init_seed     = 4
-T             = 20000 # nbr of samples
+T             = 50000 # nbr of samples
 verbose_rate  = 1000
 C             = 1.01    # injected noise variance parameter
 eta           = 0.01 # step size for Hamiltoniam dynamics
@@ -152,7 +152,7 @@ if __name__ == "__main__":
   # sghmc = run_sghmc( problem, params, theta0, x0 )
   
   #
-  # np.random.seed(init_seed + 1000*chain_id)
+  np.random.seed(init_seed + 1000*chain_id)
   sgld = run_sgld( problem, params, theta0, x0 )
   algoname = "SG-Langevin"
   view_posterior( problem, theta_range, sgld["THETA"], algoname, burnin=1000 )
@@ -163,9 +163,9 @@ if __name__ == "__main__":
   if saveit:
     pp.savefig("exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
     pp.savefig("../../papers/uai-2015/images/exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  
   #
-  # np.random.seed(init_seed + 1000*chain_id)
+  #
+  np.random.seed(init_seed + 1000*chain_id)
   mcmc = run_mcmc( problem, params, theta0, x0 )
   algoname = "ABC-MCMC"
   view_posterior( problem, theta_range, mcmc["THETA"], algoname, burnin=1000 )
@@ -177,6 +177,10 @@ if __name__ == "__main__":
     pp.savefig("exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
     pp.savefig("../../papers/uai-2015/images/exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
   
+  results = {}
+  results["mcmc"] = mcmc
+  results["sgld"] = sgld
+  results["sgnht"] = sgnht
   # pp.figure(1)
   # pp.clf()
   # pp.plot( mcmc["THETA"][-1000:])

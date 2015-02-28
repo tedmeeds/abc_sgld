@@ -313,6 +313,7 @@ the gradients (for a 1-dim problem) use $\eps$ as a smoothness prior in $\partia
 
 \subsection{From Finite Differences to Simultaneous Perturbations}
 \input{algo_fdsa_abc}
+\input{algo_spsa_abc}
 Algorithm~\ref{algo:fdsa} shows the {\em finite difference stochastic approximation} (FDSA) \cite{kiefer1952stochastic} to $\nabla U(\thetav)$ as a function of random seeds $\omegav$.  Note we have deliberately shown the deterministic simulations ($f$) outside of $\lleps$ to emphasize its dependence on $\x$.  The number of simulations required for FDSA is $2 S D$, which may be acceptable for some small ABC problems.  Our goal is to scale ABC to high-dimensions and for that we need an alternative stochastic approximation of $\nabla U(\thetav)$.
 
 In the gradient-free setting, Spall \cite{spall1992multivariate, spall2000adaptive} provides a stochastic approximate to the true gradient using only $2$ forward simulations for any dimension $D$ (though the approximation can be improved by averaging $R$ estimates).  Spall's {\em simultaneous perturbation stochastic approximation} (SPSA) algorithm works as follows. Let $L$ be the gradient-free function we wish to optimize.  Each approximation randomly generates a {\em perturbation mask} (our name) $\Deltav$ of dimension $D=|\thetav|$ where entry $\deltad \sim \text{Bernouilli}(1/2)$ (actually, values $\pm 1$, not $0/1$).  Then $L$ is evaluated at $\thetav+\dtheta \Deltav$ and $\thetav-\dtheta \Deltav$, giving the gradient approximation $\gradvest(\thetav) \approx \partial L(\thetav) / \partial \thetav$:
@@ -326,22 +327,9 @@ In the gradient-free setting, Spall \cite{spall1992multivariate, spall2000adapti
 \end{equation}
 If we let $\gradvest_r(\thetav)$ be the estimate using perturbation mask $\Deltav_r$, the estimate $\gradvest(\thetav)$ can be improved by averaging $\gradvest(\thetav) = 1/R \sum_r \gradvest_r(\thetav)$.
 Algorithm~\ref{algo:spsa} shows SPSA to estimate $\nabla U(\thetav)$.  The number of simulations required for SPSA is $2 S R$, where $R \geq 1$.
-\input{algo_spsa_abc}
+
 
 Variations of SPSA include {\em one-sided} SPSA \cite{spall2000adaptive} (we use what Spall calls 2SPSA) and an algorithm for estimating the Hessian based on the same principal as SPSA \cite{spall2005monte}.   The one-sided version is attractive computationally, but for HABC, the updates for $\thetav$ require simulating two-sides anyway, so using 2SPSA makes more sense.  SPSA has also been used within a procedure for maximum-likelihood estimation for hidden Markov models using ABC \cite{Ehrlich2013}.
-
-\subsection{Sticky Random Numbers}
-An obvious use of common random numbers, as previously demonstrated for SPSA \cite{kleinman1999simulation}, is within the gradient approximation so that the noise from the simulator has less of an influence that $\dtheta$.  In addition to this use, we have found that using the same random seeds over multiple time-steps improves the performance of HABC (TBD).  This is very similar to using dependent random streams to drive MCMC \cite{Murray2012,Neal2012}, the main difference we believe is that we are using the Hamiltonian dynamics to drive proposal in $\thetav$ and using $\omegav$ to give persistent simulations, reducing the variance from the unknown simulator noise function.
-
-Our updates for $\omegav$ are simple.  At each time step $t$, each seed is refreshed to a new random value with probability $\gamma$, i.e. $\omega_s \leftarrow \omega_s$ with probability $\gamma$, and $\omega_s \leftarrow \mathcal{U}(1,W)$, where $W=10^8$ in our algorithms.  By observing the simulation at different $\thetav$ but using same seeds, we can eliminate much of the simulator noise from the Markov chain.  By treating $\omegav$ as part of the state of the Markov chain, we can smoothly move along noiseless outputs for several iterations and then propose new seeds.  Though proposing new seeds produces a valid Metropolis-Hastings algorithm (keeping $\thetav$ fixed and changing $\omegav$), we found that using {\em sticky} random seeds works well.  These seeds can be precomputed before the chain is run and can be seen as apart from the state of the Markov chain.  [CONFUSING]
-
-[We may want anti-thetic instead of CRNs, ie overrelax versus underrelax, etc.]
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Demonstration}\label{sec:demo}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-We use a simple $D=1$ problem to demonstrate HABC.  Let $y= \frac{1}{N} \sum_{i} e_i$, where $e_i \sim \text{Exp}(1/\thetastar)$; $\thetastar = 0.15$, $N=20$, and $y=7.74$ in our concrete example.  Assuming $\pi(\theta ) = \text{Gamma}(\alpha, \beta)$, the true posterior is a gamma distribution with shape $\alpha+N$ and rate $\beta + N y$.  Our simulator therefore generates the average of $N$ exponential random variates with rate $\lambda = 1/\theta$.  Data $x \simsim \pi(x|\theta)$ are shown in Figure~\ref{fig:exp-crns}.  We have explicitly shown the smoothness of the simulator by generating data along trajectories of fixed seeds $\omega_s$; i.e. for several $\omega_s$ we vary $\theta$ (dashed lines are function $f(\theta, \omega_s)$) and randomly reveal data (blue circles).  The horizontal line with shading indicates $y \pm 2 \eps$, where $\eps = 0.37$ is used throughout the demonstration.
 
 \begin{figure}[t]
 \vskip 0.2in
@@ -353,27 +341,12 @@ We use a simple $D=1$ problem to demonstrate HABC.  Let $y= \frac{1}{N} \sum_{i}
 \vskip -0.2in
 \end{figure} 
 
-\subsection{Bias and Variance of $\nabla \hat{U}(\thetav)$}
-At $\theta_{\text{MAP}}$ we estimated the gradient $\nabla \hat{U}(\theta)$ using finite differences for both the kernel-$epsilon$ and synthetic-likelihood representation of $\pi_{eps}(y | x )$.  For $S=5$ and $S=50$, $10K$ repetitions of computing the gradients was performed; there histograms are shown in Figure~\ref{fig:exp-varg}.  At $S=5$ both methods reveal a small bias (values X and Y for kernel-$\eps$ and SL, respectively).  At $S=50$, the bias for kernel-$\eps$ is much smaller, but its variance remains high; for SL, the bias remains unchanged but the variance has decreased significantly (values X pm S and Y pm T). The bias in the SL representation comes from the Gaussian approximation $\pi(y|\theta)$ which we can compute analytically using the CLT as $\text{N}( 1/\theta, 1/N \theta^2 + \eps^2)$. 
-(We believe this bias is due to the normal approximation assuming a symmetric mode as the bias goes to zero at the mean of the true posterior).  Note that this bias is directional signal only appears nears the mode.  For the $S=5$ setting in our experiment both approaches contain similar bias. [REWRITE END]
+\subsection{Sticky Random Numbers}
+An obvious use of common random numbers, as previously demonstrated for SPSA \cite{kleinman1999simulation}, is within the gradient approximation so that the noise from the simulator has less of an influence that $\dtheta$.  In addition to this use, we have found that using the same random seeds over multiple time-steps improves the performance of HABC (TBD).  This is very similar to using dependent random streams to drive MCMC \cite{Murray2012,Neal2012}, the main difference we believe is that we are using the Hamiltonian dynamics to drive proposal in $\thetav$ and using $\omegav$ to give persistent simulations, reducing the variance from the unknown simulator noise function.
 
-\subsection{Posterior Inference using HABC}
-In Figures~\ref{fig:exp-theta-traces} we show the posterior trace plots for ABC-MCMC, SGLD, SGHMC, and SGNHT versions of HABC using SL gradient estimates ($S=5$).  The behavior of the trajectories is quite different, though they all produce the same correct posterior estimates (Figure~\ref{fig:exp-posteriors}).  In Table~\ref{tab:exp-posteriors-nosticky} we report the {\em total variational distance} between the true posterior and the ABC posteriors after different numbers of samples (repeated 5 times).
+Our updates for $\omegav$ are simple.  At each time step $t$, each seed is refreshed to a new random value with probability $\gamma$, i.e. $\omega_s \leftarrow \omega_s$ with probability $\gamma$, and $\omega_s \leftarrow \mathcal{U}(1,W)$, where $W=10^8$ in our algorithms.  By observing the simulation at different $\thetav$ but using same seeds, we can eliminate much of the simulator noise from the Markov chain.  By treating $\omegav$ as part of the state of the Markov chain, we can smoothly move along noiseless outputs for several iterations and then propose new seeds.  Though proposing new seeds produces a valid Metropolis-Hastings algorithm (keeping $\thetav$ fixed and changing $\omegav$), we found that using {\em sticky} random seeds works well.  These seeds can be precomputed before the chain is run and can be seen as apart from the state of the Markov chain.  [CONFUSING]
 
-\begin{figure*}[t]
-\vskip 0.2in
-\setlength{\linewidth}{\textwidth}
-\setlength{\hsize}{\textwidth}
-\begin{center}
-\includegraphics[width=1.0\columnwidth]{./images/exp-ABC-MCMC-theta-timeseries.pdf}
-\includegraphics[width=1.0\columnwidth]{./images/exp-SG-Thermostats-theta-timeseries.pdf}
-\includegraphics[width=1.0\columnwidth]{./images/exp-SG-Langevin-theta-timeseries.pdf}
-\includegraphics[width=1.0\columnwidth]{./images/exp-SG-Thermostats-theta-timeseries.pdf}
-\caption{\small{}}
-\label{fig:exp-theta-traces}
-\end{center}
-\vskip -0.2in
-\end{figure*} 
+%[We may want anti-thetic instead of CRNs, ie overrelax versus underrelax, etc.]
 
 \begin{figure}[t]
 \vskip 0.2in
@@ -388,6 +361,40 @@ In Figures~\ref{fig:exp-theta-traces} we show the posterior trace plots for ABC-
 \vskip -0.2in
 \end{figure} 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Demonstration}\label{sec:demo}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+We use a simple $D=1$ problem to demonstrate HABC.  Let $y= \frac{1}{N} \sum_{i} e_i$, where $e_i \sim \text{Exp}(1/\thetastar)$; $\thetastar = 0.15$, $N=20$, and $y=7.74$ in our concrete example.  Assuming $\pi(\theta ) = \text{Gamma}(\alpha, \beta)$, the true posterior is a gamma distribution with shape $\alpha+N$ and rate $\beta + N y$.  Our simulator therefore generates the average of $N$ exponential random variates with rate $\lambda = 1/\theta$.  Data $x \simsim \pi(x|\theta)$ are shown in Figure~\ref{fig:exp-crns}.  We have explicitly shown the smoothness of the simulator by generating data along trajectories of fixed seeds $\omega_s$; i.e. for several $\omega_s$ we vary $\theta$ (dashed lines are function $f(\theta, \omega_s)$) and randomly reveal data (blue circles).  The horizontal line with shading indicates $y \pm 2 \eps$, where $\eps = 0.37$ is used throughout the demonstration.
+
+\begin{figure*}[t]
+%\vskip 0.2in
+\setlength{\linewidth}{\textwidth}
+\setlength{\hsize}{\textwidth}
+\begin{center}
+\includegraphics[width=0.95\columnwidth]{./images/exp-ABC-MCMC-theta-timeseries.pdf}
+\includegraphics[width=0.95\columnwidth]{./images/exp-SG-Thermostats-theta-timeseries.pdf}
+\includegraphics[width=0.95\columnwidth]{./images/exp-SG-Langevin-theta-timeseries.pdf}
+\includegraphics[width=0.95\columnwidth]{./images/exp-SG-Thermostats-theta-timeseries.pdf}
+\caption{\small{}}
+\label{fig:exp-theta-traces}
+\end{center}
+\vskip -0.2in
+\end{figure*} 
+
+
+\subsection{Bias and Variance of $\nabla \hat{U}(\thetav)$}
+At $\theta_{\text{MAP}}$ we estimated the gradient $\nabla \hat{U}(\theta)$ using finite differences for both the kernel-$epsilon$ and synthetic-likelihood representation of $\pi_{eps}(y | x )$.  For $S=5$ and $S=50$, $10K$ repetitions of computing the gradients was performed; there histograms are shown in Figure~\ref{fig:exp-varg}.  At $S=5$ both methods reveal a small bias (values X and Y for kernel-$\eps$ and SL, respectively).  At $S=50$, the bias for kernel-$\eps$ is much smaller, but its variance remains high; for SL, the bias remains unchanged but the variance has decreased significantly (values X pm S and Y pm T). The bias in the SL representation comes from the Gaussian approximation $\pi(y|\theta)$ which we can compute analytically using the CLT as $\text{N}( 1/\theta, 1/N \theta^2 + \eps^2)$. 
+(We believe this bias is due to the normal approximation assuming a symmetric mode as the bias goes to zero at the mean of the true posterior).  Note that this bias is directional signal only appears nears the mode.  For the $S=5$ setting in our experiment both approaches contain similar bias. [REWRITE END]
+
+
+
+
+\subsection{Posterior Inference using HABC}
+In Figures~\ref{fig:exp-theta-traces} we show the posterior trace plots for ABC-MCMC, SGLD, SGHMC, and SGNHT versions of HABC using SL gradient estimates ($S=5$).  The behavior of the trajectories is quite different, though they all produce the same correct posterior estimates (Figure~\ref{fig:exp-posteriors}).  In Table~\ref{tab:exp-posteriors-nosticky} we report the {\em total variational distance} between the true posterior and the ABC posteriors after different numbers of samples (repeated 5 times).
+
+
+
+
 \subsection{Sticky Random Numbers}
 Finally we compare posterior estimates using sticky CRNs.  Using a flip rate of $1\%$, i.e. each $\omega_s$ has $1\%$ chance of changing randomly at each time-step.  In Figure~\ref{exp-traces-x-sticky} we show the traces plots of $<x^{(s)>}$ for the different methods.  While the Hamiltonian dynamics provide persistence in $\thetav$-space, the sticky random numbers do the same for the ABC statistics.  The Table~\ref{tab:exp-tvd-sticky} we report the same {\em tvd} error using sticky numbers.  [DISCUSS difference with no-sticky]. The potential benefit of using persistent random seeds is shown for all methods, including ABC-MCMC.
 
@@ -396,20 +403,24 @@ Finally we compare posterior estimates using sticky CRNs.  Using a flip rate of 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Experiments}\label{sec:experiments}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+We present experimental results comparing HABC with standard ABC-MCMC for two challenging simulators.  The first is low-dimensional ($D=6$), but exhibits chaotic behavior.  For the second problem we apply the techniques of HABC to a Bayesian image classifier and autoencoder.  The benefit of this problem is we can compare directly with the SGHD algorithms using the analytic gradients.  This problem is has very high-dimension ($D>15000$), yet we are able to successfully apply SPSA-based gradients to HABC. 
+
 
 \subsection{Blowfly}\label{sec:bf}
-[FROM UAI] Adult blowfly populations exhibit dynamic behavior for which several competing population models exist.  In this experiment, we use observational data and a simulation model from Wood \cite{wood2010statistical}, based on their improvement upon previous population dynamics theory.  Population dynamics are modeled using (discretized) differential equations that can produce chaotic behavior for some parameter settings.  An example blowfly replicate series is shown in Figure~\ref{fig:blowflyexamples}, along with  times-series generated by a sample from $\p(\thetav|\y)$ using GPS-ABC.
- 
-
-In \cite{wood2010statistical} there are several explanations of the population dynamics, corresponding to different simulations and parameters.  We concentrate on the equation (1) in section 1.2.3 of the supplementary information, considered ``a better alternative model" by the author.  The population dynamics equation generates  $N_1, \ldots, N_T$ using the following update rule:
+For these experiments, a simulator of adult sheep blowfly populations \cite{wood2010statistical} is used with statistics set to those from \cite{Meeds2014GpsUai}.  The observational vector $\y$ is a time-series of a fly population counted daily. The population dynamics are modeled using a stochastic differential equation\footnote{Equation~1 in Section 1.2.3 of the supplementary information in \cite{wood2010statistical}.}
 \begin{equation}
 N_{t+1} = P N_{t-\tau} \exp(-N_{t-\tau}/N_0) e_t + N_t \exp(-\delta \epsilon_t) \nonumber
 \end{equation}
 where $e_t \sim  \mathcal{G}( 1/{\sigma_p^2},1/{\sigma_p^2})$ and $\epsilon_t 
  \sim  \mathcal{G}( 1/{\sigma_d^2},1/{\sigma_d^2})$  
-are sources of noise, and $\tau$ is an integer (not to be confused with the $\tau$ used as the MH acceptance threshold in our algorithms).  In total, there are 6 parameters $\theta = \{ \log P, \log \delta, \log N_0, \log \sigma_d, \log \sigma_p, \tau\}$.  See \cite{wood2010statistical} for further details about the significance of the parameters.  We put Gaussian priors over all the parameters (with Gaussian proposal distributions), except for $\tau$ which has a Poisson prior (and a left/right increment proposal). Time-series generated with parameters from this prior distribution produce extremely varied results, some are chaotic, some are degenerate, etc.  Modeling this simulator is {\em very} challenging.
+are sources of noise, and $\tau$ is an integer.  In total, there are $D=6$ parameters $\theta = \{ \log P, \log \delta, \log N_0, \log \sigma_d, \log \sigma_p, \tau\}$.  As \cite{Meeds2014GpsUai} we place broad log-normal priors over $\theta_{1\ldots 5}$ and a Poisson prior over $\tau$.  This is considered a challenging problem because slight changes to some parameter settings can produce degenerate $\x$, while others settings can be very noisy due to the chaotic nature of the equations.  The statistics from \cite{Meeds2014GpsUai} are used ($J=10$): the log average of $4$ quantiles of $N/1000$, the average of $4$ quantiles of the first-order differences in $N/1000$, and the number of maximal population peaks under two different thresholds. 
 
-As with any ABC problem the choice of statistics is important as it directly affects the quality of the results.   It is also non-trivial and requires careful thought and sometimes trial and error.   In total there are 10 statistics: the log of the mean of all $25\%$ quantiles of $N/1000$ (4 statistics), the mean of the $25\%$ quantiles of the first-order differences of $N/1000$ (4 statistics), and the maximal peaks of smoothed $N$, with 2 different thresholds (2 statistics).    With these statistics it is possible to reproduce time-series that appear similar to the observations.  Note that these statistics are different from Wood's, but they capture similar time-series features and are sufficient to produce credible population dynamics. [END FROM UAI]
+%\subsubsection{Posterior Inference using HABC}
+We compare difference HABC algorithms with ABC-MCMC for the blowfly population problem.  We use $\epsvec = \{ 1/2,1/2,1/2,1/2, 1/4,1/4,1/4,1/4,3/4,3/4 \}$ (slightly different $\epsvec$ from \cite{Meeds2014GpsUai}) and $S=10$ for all experiments.  We use SPSA with $R=1$ using SL log-likelihoods for all HABC gradient estimates.  Note that this requires $2S$ forward simulations per time-step, the same as marginal ABC and twice pseudo-marginal ABC.  
+
+Figure~\ref{fig:bf-posterior-histograms} show the posterior distributions for $\log P, \log \delta$ and the posterior predictive distributions of [FILL IN].  Traces of $\thetav$ are shown for SGHMC and SGNHT in Figure~\ref{}.  Finally, we compare the convergence to $\y$ using the online posterior predictive distribution in Figure~\ref{}.  By using stick random numbers, the convergence is [FILL IN].
+  
+
 
 
 \subsection{Bayesian Autoencoders}\label{sec:auto}

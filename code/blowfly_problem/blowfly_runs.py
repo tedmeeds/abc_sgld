@@ -201,7 +201,7 @@ def view_posterior( problem, theta_range, samples, algoname, burnin = 1000 ):
   
 keep_x        = True 
 init_seed     = 4
-T             = 50000 # nbr of samples
+T             = 2000 # nbr of samples
 verbose_rate  = 10
 C             = 10.01    # injected noise variance parameter
 eta           = 0.01 # step size for Hamiltoniam dynamics
@@ -209,7 +209,7 @@ eta           = 0.01 # step size for Hamiltoniam dynamics
 
 # params for gradients
 d_theta = 0.5  # step size for gradient estimate
-S       = 5 
+S       = 10 
 grad_params = {}
   
 
@@ -218,7 +218,7 @@ grad_params = {}
 # common ransom seeds     #
 # ----------------------- #
 use_omega    = True    # use fixed random seeds for simulations
-omega_rate   = 0.01    # probabilty of changing omegas
+omega_rate   = 0.1    # probabilty of changing omegas
 omega_switch = True    # if true, randomly change omegas
 omega_sample = False   # sample omegas instead
 assert (omega_switch * omega_sample) ==0, "only get to do one type of omega update"
@@ -286,16 +286,16 @@ if __name__ == "__main__":
   np.random.seed(init_seed + 1000*chain_id)
   
   # run algorithm
-  # np.random.seed(init_seed + 1000*chain_id)
-  # sgnht = run_thermostats( problem, params, theta0, x0 )
-  # algoname = "SG-Thermostats"
-  # # view_posterior( problem, theta_range, sgnht["THETA"], algoname, burnin=1000 )
-  # # # if saveit:
-  # # #   pp.savefig("bf-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # # #   pp.savefig("../../papers/uai-2015/images/bf-%s-posterior_hist.pdf"%(algoname), format="pdf",dpi=600,bbox_inches="tight")
-  # view_theta_timeseries( problem, theta_range, sgnht["THETA"], algoname, howmany = 1000 )
-  # view_theta_hist( problem, theta_range, sgnht["THETA"], algoname, howmany = 1000 )
-  # view_X_timeseries( problem, sgnht["X"], algoname, howmany = 1000 )
+  np.random.seed(init_seed + 1000*chain_id)
+  sgnht = run_thermostats( problem, params, theta0, x0 )
+  algoname = "SG-Thermostats"
+  # view_posterior( problem, theta_range, sgnht["THETA"], algoname, burnin=1000 )
+  # # if saveit:
+  # #   pp.savefig("bf-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  # #   pp.savefig("../../papers/uai-2015/images/bf-%s-posterior_hist.pdf"%(algoname), format="pdf",dpi=600,bbox_inches="tight")
+  view_theta_timeseries( problem, theta_range, sgnht["THETA"], algoname, howmany = 1000 )
+  view_theta_hist( problem, theta_range, sgnht["THETA"], algoname, howmany = 1000 )
+  view_X_timeseries( problem, sgnht["X"], algoname, howmany = 1000 )
   # # if saveit:
   # #   pp.savefig("bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
   # #   pp.savefig("../../papers/uai-2015/images/bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
@@ -308,16 +308,16 @@ if __name__ == "__main__":
   view_X_timeseries( problem, sghmc["X"], algoname, howmany = 1000 )
   
   #
-  # np.random.seed(init_seed + 1000*chain_id)
-  # sgld = run_sgld( problem, params, theta0, x0 )
-  # algoname = "SG-Langevin"
-  # # view_posterior( problem, theta_range, sgld["THETA"], algoname, burnin=1000 )
-  # # if saveit:
-  # #   pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # #   pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # view_theta_timeseries( problem, theta_range, sgld["THETA"], algoname, howmany = 1000 )
-  # view_theta_hist( problem, theta_range, sgld["THETA"], algoname, howmany = 1000 )
-  # view_X_timeseries( problem, sgld["X"], algoname, howmany = 1000 )
+  np.random.seed(init_seed + 1000*chain_id)
+  sgld = run_sgld( problem, params, theta0, x0 )
+  algoname = "SG-Langevin"
+  # view_posterior( problem, theta_range, sgld["THETA"], algoname, burnin=1000 )
+  # if saveit:
+  #   pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  #   pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  view_theta_timeseries( problem, theta_range, sgld["THETA"], algoname, howmany = 1000 )
+  view_theta_hist( problem, theta_range, sgld["THETA"], algoname, howmany = 1000 )
+  view_X_timeseries( problem, sgld["X"], algoname, howmany = 1000 )
   # if saveit:
   #   pp.savefig("bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
   #   pp.savefig("../../papers/uai-2015/images/bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")

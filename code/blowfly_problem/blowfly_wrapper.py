@@ -10,7 +10,8 @@ from abc_sgld.code.working_code import *
 from scipy import stats as spstats
 import pylab as pp
 
-default_epsilons = 0.5 + 0*np.array([ 0.08257003,  0.01013485,  0.01,  0.01, 0.01 , 0.01,  0.01,0.01,0.53027013,0.13338243] )
+#default_epsilons = 0.5 + 0*np.array([ 0.08257003,  0.01013485,  0.01,  0.01, 0.01 , 0.01,  0.01,0.01,0.53027013,0.13338243] )
+default_epsilons = np.array([0.5,0.5,0.5,0.5,0.25,0.25,0.25,0.25,0.75,0.75])
 
 # exponential distributed observations with Gamma(alpha,beta) prior over lambda
 problem_params = default_params()

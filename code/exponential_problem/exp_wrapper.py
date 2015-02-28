@@ -84,11 +84,11 @@ class generate_exponential( object ):
     
     return X
   
-  def true_gradient( self, theta, gradients ):
+  def true_gradient( self, theta, gradients=None ):
     
     grad = (self.p.alpha+self.p.N-1)/theta - (self.p.beta+self.p.obs_sum)
     
-    params["logs"]["true"].append( np.squeeze( np.array([grad,theta])) )
+    #params["logs"]["true"].append( np.squeeze( np.array([grad,theta])) )
     return -grad 
 
   def true_abc_gradient( self, theta, d_theta, S, params ):

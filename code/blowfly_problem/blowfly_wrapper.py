@@ -10,7 +10,7 @@ from abc_sgld.code.working_code import *
 from scipy import stats as spstats
 import pylab as pp
 
-default_epsilons = 0.25+0*np.array([ 0.08257003,  0.01013485,  0.01,  0.01, 0.01 , 0.01,  0.01,0.01,0.53027013,0.13338243] )
+default_epsilons = 0.5 + 0*np.array([ 0.08257003,  0.01013485,  0.01,  0.01, 0.01 , 0.01,  0.01,0.01,0.53027013,0.13338243] )
 
 # exponential distributed observations with Gamma(alpha,beta) prior over lambda
 problem_params = default_params()
@@ -18,7 +18,7 @@ problem_params["epsilon"] = default_epsilons
 #problem_params["min_epsilon"] = 0.1*np.ones(10)
 problem_params["q_factor"] = 0.2
 problem_params["blowfly_filename"] = "./data/blowfly.txt"
-problem_params["tau_is_log_normal"] = True
+#problem_params["tau_is_log_normal"] = True
 bf_problem = BlowflyProblem( problem_params, force_init = True )
 
 state_params = state_params_factory.scrape_params_from_problem( bf_problem, S=1 )

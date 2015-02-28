@@ -6,7 +6,7 @@ import pylab as pp
 
 # exponential distributed observations with Gamma(alpha,beta) prior over lambda
 problem_params = default_params()
-problem_params["epsilon"] = 2.5*np.ones(10)
+problem_params["epsilon"] = 0.5*np.ones(10)
 problem_params["min_epsilon"] = 0.5*np.ones(10)
 problem_params["q_factor"] = 0.2
 problem_params["blowfly_filename"] = "./data/blowfly.txt"
@@ -37,10 +37,10 @@ algo_params = { "modeling_approach"  : "kernel",
                 "mcmc_params"        : mcmc_params,
                 "algorithm"          : "model_mcmc"
               }
-og = algo_params["observation_groups"][0]
-og.params["response_params"]['min_epsilon'] = problem_params["min_epsilon"]
-og.params["response_params"]["epsilon_update_rule"]=True
-og.params["response_params"]["epsilon_update_params"]={"decay":0.995,"quantile":0.25}
+#og = algo_params["observation_groups"][0]
+#og.params["response_params"]['min_epsilon'] = problem_params["min_epsilon"]
+#og.params["response_params"]["epsilon_update_rule"]=True
+#og.params["response_params"]["epsilon_update_params"]={"decay":0.995,"quantile":0.25}
 recorder_params = {}  
 algo, model, state  = algo_factory.create_algo_and_state( algo_params )
 recorder     = recorder_factory.create_recorder( recorder_params )

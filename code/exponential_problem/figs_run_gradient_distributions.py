@@ -118,9 +118,10 @@ if __name__ == "__main__":
   np.random.seed(4)
   problem = generate_exponential( exp_problem )
   
-  theta_map = problem.p.theta_posterior
+  theta_map = problem.p.posterior_mode
+  #theta_map = 1.0/problem.y #problem.p.posterior_mode
   
-  S = 50
+  S = 10
   N = 10000
   G = np.zeros( (N,3))
   for i in range(N):

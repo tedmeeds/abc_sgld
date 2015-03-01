@@ -31,7 +31,7 @@ def get_omega(problem, batch_size):
   if get_omega.counter % 50 == 0:
     reconstruction_error, num_correct = problem.nn.test(problem.X_valid.T,problem.X_valid.T)
     print "Reconstruction error: {}, average percentage of pixels correct: {}%".format(reconstruction_error, num_correct*100)
-    problem.nn.save('thermo-saved_at_counter-{}.json'.format(get_omega.counter))
+    problem.nn.save('thermo-saved.json'.format())
   return mini_batches.pop()
 get_omega.mini_batches = []
 get_omega.counter = 0

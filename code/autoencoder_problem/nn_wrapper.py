@@ -1,4 +1,5 @@
 import numpy as np
+from nn import one_hot
 # Theta=weights
 class NeuralNetworkProblem(object):
     def __init__(self, nn, data):
@@ -84,21 +85,21 @@ class NeuralNetworkProblem(object):
         #     samples.append(output)
         return np.array(samples)
 
-    # Use backprop
+    # Use backprop, probably should use some regularization or learning rate
     def true_gradient(self, theta, omega):
-        biases, weights = self.unpack_theta(theta)
-        self.nn.weights = weights
-        self.nn.biases = biases
-        grad_b = 0.0*biases
-        grad_w = 0.0*weights
+        self.set_weights(theta)
+        grad_b = 0.0*self.nn.biases
+        grad_w = 0.0*self.nn.weights
         for i in omega:
-            x = self.X_train[i, :]
+            x = self.X_train[i][:,np.newaxis]
             y = self.T_train[i]
+            self.nn.feedforward(x)
             gb, gw = self.nn.backpropagation(x, y)
             grad_b += gb
             grad_w += gw
-        # Return mean
+        grad_b /= len(omega)
         grad_w /= len(omega)
+
         return self.flatten(grad_b, grad_w)
 
     # Does NN have this?
@@ -131,6 +132,7 @@ class NeuralNetworkProblem(object):
     #     gradient += gradient_prior
     #     return -gradient
     def two_sided_keps_gradient(self, theta, d_theta, omega, S, params):
+        # return -self.true_gradient(theta, omega)
         R = params['2side_keps']['R']
         gradient = 0.0*theta
         for r in range(R):
@@ -162,8 +164,8 @@ class NeuralNetworkProblem(object):
 
     def set_weights( self, theta ):
         biases, weights = self.unpack_theta(theta)
-        self.nn.weights = weights
         self.nn.biases = biases
+        self.nn.weights = weights
 
     # theta is flattened, and we reconstruct it so the NN can use it
     def unpack_theta(self, theta):

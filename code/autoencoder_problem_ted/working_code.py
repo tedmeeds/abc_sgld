@@ -135,7 +135,7 @@ def run_sgld( problem, params, theta, x = None ):
 
     if np.mod(t+1,verbose_rate)==0:
       if keep_x:
-        print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0][0])
+        print "t = %04d    loglik = %3.3f"%(t+1,loglike_x ) #,theta[0],x[0][0])
       else:
         print "t = %04d    theta0 = %3.3f"%(t+1,theta[0])
 

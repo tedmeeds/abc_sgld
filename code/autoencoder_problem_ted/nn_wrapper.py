@@ -116,7 +116,7 @@ class NeuralNetworkProblem(object):
             # print grad
             gradient += (f_plus-f_minus) / delta
         gradient /= 2*d_theta*R
-        gradient_prior = self.prior_penalty*np.array([np.sign(theta[0]), np.sign(theta[1])]) # (??) sign of the weights?
+        gradient_prior = -self.prior_penalty*np.array([np.sign(theta[0]), np.sign(theta[1])]) # (??) sign of the weights?
         gradient += gradient_prior
         return -gradient
 

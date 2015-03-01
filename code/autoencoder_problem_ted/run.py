@@ -13,7 +13,7 @@ from nn import *
 keep_x        = True
 init_seed     = 1
 T             = 5000 # nbr of samples
-verbose_rate  = 1000
+verbose_rate  = 10
 C             = 20.01    # injected noise variance parameter
 eta           = 0.001 # step size for Hamiltoniam dynamics
 #h = 0.0005
@@ -29,7 +29,7 @@ upper_bounds = np.array([np.inf])
 
 if __name__ == "__main__":
   # pp.close('all')
-  problem = NeuralNetworkProblem( NeuralNetwork([28*28, 10, 28*28]), load_mnist() )
+  problem = NeuralNetworkProblem( NeuralNetwork([28*28, 100, 28*28]), load_mnist() )
   # Cheat by loading previous training NN
   # problem.nn.load('latest_epoch.json')
   chain_id = 1
@@ -41,11 +41,11 @@ if __name__ == "__main__":
   params["d_theta"] = d_theta
   params["eta"]     = eta
   params["C"]       = C
-  params["batch_size"] = 10
+  params["batch_size"] = 200
   params["verbose_rate"] = verbose_rate
   params["grad_params"]  = {"logs":{"true":[],"true_abc":[],"2side_keps":[],"2side_sl":[]},\
                             "record_2side_sl_grad":False, "record_2side_keps_grad":False,"record_true_abc_grad":False,"record_true_grad":False,
-                            "2side_keps": {"R": 10}}
+                            "2side_keps": {"R": 20}}
   params["lower_bounds"] = lower_bounds
   params["upper_bounds"] = upper_bounds
   params["keep_x"]       = keep_x

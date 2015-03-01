@@ -145,7 +145,7 @@ class NeuralNetworkProblem(object):
             f_minus = self.loglike_x( x_minus, omega )
             gradient += (f_plus-f_minus) / delta
         gradient /= 2*d_theta*R
-        gradient_prior = self.prior_penalty*np.sign(theta)
+        gradient_prior = -self.prior_penalty*np.sign(theta)
         gradient += gradient_prior
         return -gradient
 

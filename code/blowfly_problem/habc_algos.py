@@ -306,7 +306,7 @@ def run_sgld( problem, params, theta, x = None ):
   OMEGAS = [omega]
   
   grads = np.zeros( (T,D) )
-  
+  V=0
   # sample...
   for t in xrange(T):
     
@@ -328,6 +328,11 @@ def run_sgld( problem, params, theta, x = None ):
     
     grads[t,:] = grad_U
     
+    if t > 60:
+    
+      V = np.var(grads[t-60:t+1],0)# *np.eye(D)
+
+      
     # initialize momentum  
     p = np.random.randn(D)
     
@@ -365,6 +370,12 @@ def run_sgld( problem, params, theta, x = None ):
     if np.mod(t+1,verbose_rate)==0:
       if keep_x:
         print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0][0])
+        grad_noise = ((0.5*eta*eta)**2)*V
+        injected_noise = eta**2
+        print "\t var ", V
+        print "\t grad noise ", grad_noise
+        print "\t inject noise", injected_noise
+        print "\t ratio ", grad_noise / injected_noise
       else:
         print "t = %04d    theta0 = %3.3f"%(t+1,theta[0])
       

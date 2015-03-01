@@ -272,7 +272,7 @@ def run_sgld( problem, params, theta, x = None ):
   d_theta       = params["d_theta"] # step used for estimating gradients
   grad_U_func   = params["grad_func"]
   grad_U_params = params["grad_params"]
-  
+  mh_correction = params["mh_correction"]
   keep_x        = params["keep_x"] # the HABC methods do not necessarily have x in the state space
   
   # keep theta within bounds
@@ -317,22 +317,25 @@ def run_sgld( problem, params, theta, x = None ):
     # estimate stochastic gradient
     grad_U = grad_U_func( theta, d_theta, omega, S, grad_U_params)
     #
-    if grad_U_params["record_2side_sl_grad"]:
-      grad_U_dummy = problem.two_sided_sl_gradient( theta, d_theta, omega, S, grad_U_params )
-    if grad_U_params["record_2side_keps_grad"]:
-      grad_U_dummy = problem.two_sided_keps_gradient( theta, d_theta, omega, S, grad_U_params )
-    if grad_U_params["record_true_abc_grad"]:
-      grad_U_dummy = problem.true_abc_gradient( theta, d_theta, S, grad_U_params )
-    if grad_U_params["record_true_grad"]:
-      grad_U_dummy = problem.true_gradient( theta, grad_U_params )
+    # if grad_U_params["record_2side_sl_grad"]:
+    #   grad_U_dummy = problem.two_sided_sl_gradient( theta, d_theta, omega, S, grad_U_params )
+    # if grad_U_params["record_2side_keps_grad"]:
+    #   grad_U_dummy = problem.two_sided_keps_gradient( theta, d_theta, omega, S, grad_U_params )
+    # if grad_U_params["record_true_abc_grad"]:
+    #   grad_U_dummy = problem.true_abc_gradient( theta, d_theta, S, grad_U_params )
+    # if grad_U_params["record_true_grad"]:
+    #   grad_U_dummy = problem.true_gradient( theta, grad_U_params )
     
     grads[t,:] = grad_U
     
     # initialize momentum  
     p = np.random.randn(D)
+    current_p = p
     
     # take step momentum
     p = p - grad_U*eta/2.0
+    
+    current_theta = theta
     
     # full step position
     theta = theta + p*eta
@@ -340,6 +343,12 @@ def run_sgld( problem, params, theta, x = None ):
     # bounce position off parameter boundaries
     theta, p = bounce_off_boundaries( theta, p, lower_bounds, upper_bounds )
     
+    if mh_correction:
+      x_proposal     = problem.simulate( theta, omega, S )
+      
+      theta, x, loglike_x = hamiltonian_accept( problem, current_theta, theta, x, x_proposal, current_p, p )
+      
+        
     # --------------- #
     # samples omegas  #
     # --------------- #
@@ -353,8 +362,9 @@ def run_sgld( problem, params, theta, x = None ):
 
     if keep_x:
       # probably too many simulations
-      x = problem.simulate( theta, omega, S )
-      loglike_x = problem.loglike_x( x )
+      if mh_correction is False:
+        x = problem.simulate( theta, omega, S )
+        loglike_x = problem.loglike_x( x )
       LL.append(loglike_x)
       X.append(x)
     

@@ -116,12 +116,12 @@ class generate_blowfly( object ):
       if seed is None:
         state = np.random.get_state()
       
-      X_plus[s] = self.simulate( theta_plus, seed=[seed] )
+      X_plus = self.simulate( theta_plus, omega, S )
       
       if seed is None:
         np.random.set_state(state)
         
-      X_minus[s] = self.simulate( theta_minus, seed=[seed] )
+      X_minus = self.simulate( theta_minus, omega, S )
       
       seeds.append(seed)
       

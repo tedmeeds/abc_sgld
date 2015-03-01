@@ -6,7 +6,46 @@ from blowfly_wrapper import *
 from habc_algos import *
 
 #def pp_vector( x ):
+def view_all_convs( problem, algo_convs, intervals, stats_2_use = [0,1,2,3,4,5,6,7,8]):
+  figsize = (16,6)
+  alpha=0.75
+  pp.rc('text', usetex=True)
+  pp.rc('font', family='times')
+  f = pp.figure( figsize=figsize )
+  sp=pp.subplot(1,1,1)
   
+  
+  for j in stats_2_use:
+    pp.subplot( 3,3,j+1)
+    
+    leg_names = []
+    for name, convs in algo_convs.iteritems():
+      pp.loglog( intervals, convs[:,j], lw=2 )
+      leg_names.append(name)
+    pp.title( problem.p.stats_names[j] )
+    pp.xlim( intervals[0],intervals[-1])
+  pp.legend( leg_names, loc=1,fancybox=True,prop={'size':16} )
+    
+  
+def quick_convergence_single_algo( y, X, intervals ):
+  C = np.zeros( (len(y),len(intervals)))
+  
+  convs = []
+  count = 0.0
+  mean  = np.zeros(len(y))
+  
+  j = 0
+  for i in xrange(len(X)):
+    mean = count*mean + X[i]
+    count+=1
+    mean /= count
+    
+    convs.append( pow( y - mean, 2 )/pow(y,2) )
+    
+  convs = np.array(convs)
+  C = convs[intervals,:]
+  return C
+    
 def view_results( problem, thetas, all_stats, burnin = 1 ):
   stats = all_stats.mean(1)
   self=problem
@@ -204,7 +243,7 @@ init_seed     = 4
 T             = 2000 # nbr of samples
 verbose_rate  = 10
 C             = 10.01    # injected noise variance parameter
-eta           = 0.01 # step size for Hamiltoniam dynamics
+eta           = 0.1 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients
@@ -282,30 +321,30 @@ if __name__ == "__main__":
   params["grad_func"] = problem.two_sided_sl_gradient
   #params["grad_func"] = problem.two_sided_keps_gradient
 
-  # init randomly for MCMC chain
-  np.random.seed(init_seed + 1000*chain_id)
-  
-  # run algorithm
-  np.random.seed(init_seed + 1000*chain_id)
-  sgnht = run_thermostats( problem, params, theta0, x0 )
-  algoname = "SG-Thermostats"
-  # view_posterior( problem, theta_range, sgnht["THETA"], algoname, burnin=1000 )
-  # # if saveit:
-  # #   pp.savefig("bf-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # #   pp.savefig("../../papers/uai-2015/images/bf-%s-posterior_hist.pdf"%(algoname), format="pdf",dpi=600,bbox_inches="tight")
-  view_theta_timeseries( problem, theta_range, sgnht["THETA"], algoname, howmany = 1000 )
-  view_theta_hist( problem, theta_range, sgnht["THETA"], algoname, howmany = 1000 )
-  view_X_timeseries( problem, sgnht["X"], algoname, howmany = 1000 )
-  # # if saveit:
-  # #   pp.savefig("bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # #   pp.savefig("../../papers/uai-2015/images/bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # #
-  algoname = "SG-HMC"
-  np.random.seed(init_seed + 1000*chain_id)
-  sghmc = run_sghmc( problem, params, theta0, x0 )
-  view_theta_timeseries( problem, theta_range, sghmc["THETA"], algoname, howmany = 1000 )
-  view_theta_hist( problem, theta_range, sghmc["THETA"], algoname, howmany = 1000 )
-  view_X_timeseries( problem, sghmc["X"], algoname, howmany = 1000 )
+  # # init randomly for MCMC chain
+  # np.random.seed(init_seed + 1000*chain_id)
+  #
+  # # run algorithm
+  # np.random.seed(init_seed + 1000*chain_id)
+  # sgnht = run_thermostats( problem, params, theta0, x0 )
+  # algoname = "SG-Thermostats"
+  # # view_posterior( problem, theta_range, sgnht["THETA"], algoname, burnin=1000 )
+  # # # if saveit:
+  # # #   pp.savefig("bf-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  # # #   pp.savefig("../../papers/uai-2015/images/bf-%s-posterior_hist.pdf"%(algoname), format="pdf",dpi=600,bbox_inches="tight")
+  # view_theta_timeseries( problem, theta_range, sgnht["THETA"], algoname, howmany = 1000 )
+  # view_theta_hist( problem, theta_range, sgnht["THETA"], algoname, howmany = 1000 )
+  # view_X_timeseries( problem, sgnht["X"], algoname, howmany = 1000 )
+  # # # if saveit:
+  # # #   pp.savefig("bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  # # #   pp.savefig("../../papers/uai-2015/images/bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  # # #
+  # algoname = "SG-HMC"
+  # np.random.seed(init_seed + 1000*chain_id)
+  # sghmc = run_sghmc( problem, params, theta0, x0 )
+  # view_theta_timeseries( problem, theta_range, sghmc["THETA"], algoname, howmany = 1000 )
+  # view_theta_hist( problem, theta_range, sghmc["THETA"], algoname, howmany = 1000 )
+  # view_X_timeseries( problem, sghmc["X"], algoname, howmany = 1000 )
   
   #
   np.random.seed(init_seed + 1000*chain_id)
@@ -315,28 +354,28 @@ if __name__ == "__main__":
   # if saveit:
   #   pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
   #   pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  view_theta_timeseries( problem, theta_range, sgld["THETA"], algoname, howmany = 1000 )
-  view_theta_hist( problem, theta_range, sgld["THETA"], algoname, howmany = 1000 )
+  #view_theta_timeseries( problem, theta_range, sgld["THETA"], algoname, howmany = 1000 )
+  #view_theta_hist( problem, theta_range, sgld["THETA"], algoname, howmany = 1000 )
   view_X_timeseries( problem, sgld["X"], algoname, howmany = 1000 )
   # if saveit:
   #   pp.savefig("bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
   #   pp.savefig("../../papers/uai-2015/images/bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
   #
   #
-  np.random.seed(init_seed + 1000*chain_id)
-  mcmc = run_mcmc( problem, params, theta0, x0 )
-  algoname = "ABC-MCMC"
-  #view_posterior( problem, theta_range, mcmc["THETA"], algoname, burnin=1000 )
-  #if saveit:
-  #  pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #  pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  view_theta_timeseries( problem, theta_range, mcmc["THETA"], algoname, howmany = 1000 )
-  view_theta_hist( problem, theta_range, mcmc["THETA"], algoname, howmany = 1000 )
-  view_X_timeseries( problem, mcmc["X"], algoname, howmany = 1000 )
-
-  if saveit:
-    pp.savefig("exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-    pp.savefig("../../papers/uai-2015/images/exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  # np.random.seed(init_seed + 1000*chain_id)
+  # mcmc = run_mcmc( problem, params, theta0, x0 )
+  # algoname = "ABC-MCMC"
+  # #view_posterior( problem, theta_range, mcmc["THETA"], algoname, burnin=1000 )
+  # #if saveit:
+  # #  pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  # #  pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  # view_theta_timeseries( problem, theta_range, mcmc["THETA"], algoname, howmany = 1000 )
+  # view_theta_hist( problem, theta_range, mcmc["THETA"], algoname, howmany = 1000 )
+  # view_X_timeseries( problem, mcmc["X"], algoname, howmany = 1000 )
+  #
+  # if saveit:
+  #   pp.savefig("exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  #   pp.savefig("../../papers/uai-2015/images/exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
   #  #
   # results = {}
   # results["mcmc"] = mcmc
@@ -351,5 +390,22 @@ if __name__ == "__main__":
   # pp.legend( ["MCMC","SGLD","SGHMC","SGNHT"])
   # view results of single chain
   #problem.view_single_chain( sgnht )
-    
+  nbr_keep=2000
+  intervals = np.array([100,250,500,1000,1500,nbr_keep])-1
+  algo_convs = {}
+  # c_mcmc = quick_convergence_single_algo( problem.y, mcmc["X"].mean(1)[-nbr_keep:], intervals );algo_convs["MCMC"]=c_mcmc;
+  c_sgld = quick_convergence_single_algo( problem.y, sgld["X"].mean(1)[-nbr_keep:], intervals );algo_convs["SGLD"]=c_sgld;
+  # c_sghmc = quick_convergence_single_algo( problem.y, sghmc["X"].mean(1)[-nbr_keep:], intervals );algo_convs["SGHMC"]=c_sghmc;
+  # c_sgnht = quick_convergence_single_algo( problem.y, sgnht["X"].mean(1)[-nbr_keep:], intervals );algo_convs["SGNHT"]=c_sgnht;
+  
+  view_all_convs( problem, algo_convs, intervals)
   pp.show()
+  
+  print "==================================="
+  print "use_omega", use_omega
+  print "eta ", eta
+  print "S   ", S
+  print "C   ", C
+  print "grad func", params["grad_func"]
+  print "conv ", c_sgld[-1,:]
+  print "==================================="

@@ -7,14 +7,14 @@ import pylab as pp
 
 problem_params = default_params()
 
-problem_params["N"]               = 20
+problem_params["N"]               = 5
 problem_params["q_stddev"]        = 0.2
 problem_params["theta_star"]      = 0.15
 problem_params["epsilon"]         = 0.25*np.sqrt( 1.0 / (problem_params["N"]*problem_params["theta_star"]**2) )
 problem_params["alpha"]           = 0.1
 problem_params["beta"]            = 0.1
 problem_params["min_range"]       = 0.005
-problem_params["max_range"]       = 0.3
+problem_params["max_range"]       = 0.6
 #problem_params["alpha"]           = 3.75
 #problem_params["beta"]            = 1.01
 
@@ -67,20 +67,24 @@ class generate_exponential( object ):
     
   def simulate( self, theta, seed = None, S = 1 ):
     X = np.zeros( (S,1))  
-    
+
+    #if seed is not None:
+    #  # save current state
+    current_state = np.random.get_state()
+      
     for s in range(S):
       if seed is not None:
-        # save current state
-        current_state = np.random.get_state()
         np.random.seed(seed[s])
-    
+        #print "setting seed ",seed[s]
+      #else:
+      #  np.random.set_state( current_state )
     
       raw_outputs = self.p.simulation_function( theta )
       X[s] = self.p.statistics_function( raw_outputs)
       
-      if seed is not None:
-        # put back the current state
-        np.random.set_state( current_state )
+    if seed is not None:
+      # put back the current state
+      np.random.set_state( current_state )
     
     return X
   
@@ -159,23 +163,24 @@ class generate_exponential( object ):
     seeds   = []
     X_plus  = np.zeros( (S,1))
     X_minus = np.zeros( (S,1))
+    theta_minus = max(0.01,theta-d_theta)
+    theta_plus = theta_minus + 2*d_theta
     for s in range(S):
-      theta_minus = max(0.01,theta-d_theta)
-      theta_plus = theta_minus + 2*d_theta
       
       if omega is not None:
         seed = omega[s]
        
       if seed is None:
         state = np.random.get_state()
-      
-      X_plus[s] = self.simulate( theta_plus, seed=[seed] )[0]
-      
+      #pdb.set_trace()
+      X_plus = self.simulate( theta_plus, omega, S )
+
       if seed is None:
         np.random.set_state(state)
-        
-      X_minus[s] = self.simulate( theta_minus, seed=[seed] )[0]
+      X_minus = self.simulate( theta_minus, omega, S )
       
+      
+      #pdb.set_trace()
       seeds.append(seed)
       
     return X_plus, X_minus, seeds, theta_plus, theta_minus
@@ -187,8 +192,9 @@ class generate_exponential( object ):
     theta_plus, \
     theta_minus = self.simulate_for_gradient( theta, d_theta, omega, S, params )
     
-    f_plus = logsumexp( self.loglike_x(X_plus),0 ) - np.log(S)
-    f_minus = logsumexp( self.loglike_x(X_minus),0 ) - np.log(S)
+    # just call log-like
+    f_plus = self.loglike_x(X_plus) 
+    f_minus = self.loglike_x(X_minus) 
     
     grad = (f_plus-f_minus)/(theta_plus-theta_minus) + (self.p.alpha-1)/theta - self.p.beta
     
@@ -216,12 +222,30 @@ class generate_exponential( object ):
     
     grad = (f_plus-f_minus)/(theta_plus-theta_minus) + (self.p.alpha-1)/theta - self.p.beta
     
-    params["logs"]["2side_sl"].append( np.squeeze( np.array([grad, theta, theta_plus, X_plus.mean(),f_plus,theta_minus, X_minus.mean(),f_minus])) )
+    #params["logs"]["2side_sl"].append( np.squeeze( np.array([grad, theta, theta_plus, X_plus.mean(),f_plus,theta_minus, X_minus.mean(),f_minus])) )
     return -grad    
     
   def posterior( self, thetas ):
     return np.exp( self.p.true_posterior_logpdf_func( thetas) )
 
+  def total_variational_distance_errors( self, theta, times ):
+    errs = []
+    time_ids = []
+    nbr_sims = []
+    
+    for time_id in times:
+      if time_id <= len(theta):
+        #errs.append( bin_errors_1d(self.p.coarse_theta_range, self.p.posterior_cdf_bins, thetas[:time_id]) )
+        er = bin_errors_1d( self.p.coarse_theta_range, self.p.posterior_cdf_bins, theta[:time_id] )
+        
+        errs.append( er  )
+        time_ids.append(time_id)
+        
+    errs = np.array(errs)
+    time_ids = np.array(time_ids)
+    
+    return errs, time_ids
+    
   def view_results( self, thetas, stats, nsims, total_sims ):
     # plotting params
     nbins       = 20

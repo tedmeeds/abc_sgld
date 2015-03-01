@@ -1,4 +1,5 @@
 import numpy as np
+import pdb
 # Theta=weights
 class NeuralNetworkProblem(object):
     def __init__(self, nn, data):
@@ -6,7 +7,7 @@ class NeuralNetworkProblem(object):
         (self.X_train, self.T_train), (self.X_valid, self.T_valid), (self.X_test, self.T_test) = data
         self.N = len(self.X_train)
         #self.training_set, self.validation_set, self.test_set = data
-        self.prior_penalty = 0.1
+        self.prior_penalty = 0.001
     # Skip
     def prior_rand(self):
         pass
@@ -96,15 +97,40 @@ class NeuralNetworkProblem(object):
         #return -self.true_gradient(theta, omega)
         R = params['2side_keps']['R']
         gradient = 0.0*theta
+        
+        percent_change = params["percent_to_change"]
+
+        change_mask = [0]*len(theta)
+        for i in range(len(theta)):
+            
+            #delta[i] = 2*np.random.binomial(1, 0.5, theta[i].shape)-1
+            change_mask[i] = np.zeros(theta[i].shape)
+            sz = theta[i].shape[0]*theta[i].shape[1]
+            ids_to_change = np.random.permutation( sz )[:int(percent_change*sz)]
+            changes = np.zeros(sz)
+            changes[ids_to_change]=1
+            change_mask[i] = changes.reshape(theta[i].shape)
+        change_mask = np.array(change_mask)    
         for r in range(R):
-            delta = [0]*len(theta)
+            delta   = [0]*len(theta)
+            #change_mask = [0]*len(theta)
             for i in range(len(theta)):
+                
                 delta[i] = 2*np.random.binomial(1, 0.5, theta[i].shape)-1
+                #change_mask[i] = delta[i]*0
+                #sz = theta[i].shape[0]*theta[i].shape[1]
+                #ids_to_change = np.random.permutation( sz )[:int(percent_change*sz)]
+                #changes = np.zeros(sz)
+                #changes[ids_to_change]=1
+                #change_mask[i] = changes.reshape(theta[i].shape)
+                #pdb.set_trace()
             delta = np.array(delta)
             
-            self.set_weights( theta + d_theta*delta )
+            
+            self.set_weights( theta + d_theta*delta*change_mask )
             x_plus = self.forwardpass( self.X_train[omega,:]) 
-            self.set_weights( theta - d_theta*delta )
+            #pdb.set_trace()
+            self.set_weights( theta - d_theta*delta*change_mask )
             x_minus = self.forwardpass( self.X_train[omega,:]) 
             #x_plus = np.array([self.forwardpass(theta + delta, self.training_set[i][0]) for i in omega])
             #x_minus = np.array([self.forwardpass(theta - delta, self.training_set[i][0]) for i in omega])
@@ -114,9 +140,10 @@ class NeuralNetworkProblem(object):
             f_minus = self.loglike_x( x_minus, omega )
             #grad = (self.loglike_x(x_plus, omega, False) - self.loglike_x(x_minus, omega, False)) / delta
             # print grad
-            gradient += (f_plus-f_minus) / delta
+            gradient += (f_plus-f_minus) * change_mask*delta
         gradient /= 2*d_theta*R
-        gradient_prior = -self.prior_penalty*np.array([np.sign(theta[0]), np.sign(theta[1])]) # (??) sign of the weights?
+        #gradient_prior = -self.prior_penalty*np.array([np.sign(theta[0]), np.sign(theta[1])]) # (??) sign of the weights?
+        gradient_prior = -self.prior_penalty*np.array([theta[0], theta[1]]) # (??) sign of the weights?
         gradient += gradient_prior
         return -gradient
 

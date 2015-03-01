@@ -1,6 +1,6 @@
 from abcpy.factories import *
 from abcpy.problems.exponential import *
-from abc_sgld.code.working_code import *
+from habc_algos import *
 #from sa_algorithms import *
 from scipy import stats as spstats
 import pylab as pp

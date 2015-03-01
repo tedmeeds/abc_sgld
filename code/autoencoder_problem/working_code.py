@@ -96,7 +96,7 @@ def run_sgld( problem, params, theta, x = None ):
   THETAS = [theta]
   OMEGAS = [omega]
 
-  grads = np.array([])
+  grads = np.zeros((T,D))
 
   # sample...
   for t in xrange(T):
@@ -118,7 +118,7 @@ def run_sgld( problem, params, theta, x = None ):
       grad_U_dummy = problem.true_gradient( theta, grad_U_params )
 
     # print grad_U
-    grads = np.append(grads, grad_U)
+    grads[t,:] = grad_U
 
     # initialize momentum
     p = np.random.randn(D)
@@ -167,7 +167,7 @@ def run_sghmc( problem, params, theta, x = None ):
   T             = params["T"]
   S             = params["S"]
   verbose_rate  = params["verbose_rate"]
-  omega_params  = params["omega_params"]
+  batch_size  = params["batch_size"]
   deltaC        = params["C"]  # injected noise added to Variance
   eta           = params["eta"] # Hamiltonain step size
   d_theta       = params["d_theta"] # step used for estimating gradients
@@ -187,14 +187,14 @@ def run_sghmc( problem, params, theta, x = None ):
   # one_gradients = []
   # true_gradients = []
 
-  omega = init_omega( omega_params, S )
+  omega = get_omega(problem, batch_size)
 
   # pseudo-data
   if keep_x:
     if x is None:
       x = problem.simulate( theta, omega, S )
-    assert len(x.shape) == 2, "x should be S by dim"
-    loglike_x = problem.loglike_x( x )
+    # assert len(x.shape) == 2, "x should be S by dim"
+    loglike_x = problem.loglike_x( x, omega )
     X      = [x]
     LL     = [loglike_x]
   else:
@@ -207,18 +207,16 @@ def run_sghmc( problem, params, theta, x = None ):
   THETAS = [theta]
   OMEGAS = [omega]
 
-  grads = np.array([])
+  grads = np.zeros((T,D))
 
   # sample...
   for t in xrange(T):
-
     # ----------------------------- #
     # simulate trajectory for theta #
     # ----------------------------- #
 
     # estimate stochastic gradient
     grad_U = grad_U_func( theta, d_theta, omega, S, grad_U_params)
-
     #grad_U = problem.one_sided_gradient( theta, x, omega, c )
     #true_grad = problem.true_abc_gradient( theta, true_gradients )
     #
@@ -231,35 +229,24 @@ def run_sghmc( problem, params, theta, x = None ):
     if grad_U_params["record_true_grad"]:
       grad_U_dummy = problem.true_gradient( theta, grad_U_params )
 
-    grads = np.append(grads, grad_U)
-
-    V = np.var(grads[:t+1],0)*np.eye(D)
+    grads[t,:] = grad_U
+    V = np.var(grads[:t+1], axis=1)
     B = 0.5*eta*V
-    C = B+deltaC*np.eye(D)
-
+    C = B+deltaC
     # full step momentum
     p = p - C*p*eta - grad_U*eta + np.sqrt(2.0*(C-B)*eta)*np.random.randn(D)
-
     # full step position
     theta = theta + p*eta
-
     # bounce position off parameter boundaries
     # theta, p = bounce_off_boundaries( theta, p, lower_bounds, upper_bounds )
 
     # --------------- #
     # samples omegas  #
     # --------------- #
-    if omega_params["use_omega"]:
-      if omega_params["omega_sample"]:
-        # propose new omega and accept/reject using MH
-        theta, x, omega, loglike_x = omega_sample(problem, theta, x, omega, loglike_x )
-      elif omega_params["omega_switch"]:
-        # randomly switch to new omega
-        theta, x, omega, loglike_x = omega_switch(problem, theta, x, omega, loglike_x, omega_params )
-
+    omega = get_omega(problem, batch_size)
     if keep_x:
       x = problem.simulate( theta, omega, S )
-      loglike_x = problem.loglike_x( x )
+      loglike_x = problem.loglike_x( x, omega )
       LL.append(loglike_x)
       X.append(x)
 

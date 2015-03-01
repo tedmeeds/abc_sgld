@@ -14,8 +14,8 @@ keep_x        = True
 init_seed     = 1
 T             = 5000 # nbr of samples
 verbose_rate  = 1000
-C             = 20.01    # injected noise variance parameter
-eta           = 1e-5 # step size for Hamiltoniam dynamics
+C             = 500.01    # injected noise variance parameter
+eta           = 1e-4 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients
@@ -62,9 +62,10 @@ if __name__ == "__main__":
   np.random.seed(init_seed + 1000*chain_id)
 
   # run algorithm
-  outs = run_thermostats( problem, params, theta0, x0 )
-  #outs = run_sghmc( problem, params, theta0, x0 )
-  # outs = run_sgld( problem, params, theta0, x0 )
+  print params
+  # outs = run_thermostats( problem, params, theta0, x0 )
+  # outs = run_sghmc( problem, params, theta0, x0 )
+  outs = run_sgld( problem, params, theta0, x0 )
   #outs = run_mcmc( problem, params, theta0, x0 )
 
   # view results of single chain

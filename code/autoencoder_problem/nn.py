@@ -87,8 +87,13 @@ class NeuralNetwork(object):
             for mini_batch in mini_batches:
                 self.update_mini_batch(mini_batch, learning_rate, regularization_rate, num_training_samples)
             print "Epoch %s done." % epoch
-            reconstruction_error, num_correct = self.test(validation_set)
-            print "Reconstruction error: {}, average percentage of pixels correct: {}%".format(reconstruction_error, num_correct*100)
+            errors = []
+            correct = []
+            for x, y in validation_set:
+                reconstruction_error, num_correct = self.test(x, y)
+                errors.append(reconstruction_error)
+                correct.append(num_correct)
+            print "Reconstruction error: {}, average percentage of pixels correct: {}%".format(np.mean(errors), np.mean(correct)*100)
             self.save('{}-epoch{}.json'.format(start_time, epoch))
 
     def update_mini_batch(self, mini_batch, learning_rate, regularization_rate, num_training_samples):
@@ -177,7 +182,7 @@ class NeuralNetwork(object):
 if __name__ == '__main__':
     training_set, validation_set, test_set = load_sets_mnist()
     nn = NeuralNetwork([28*28, 100, 28*28])
-    nn.load('latest_epoch.json')
+    # nn.load('latest_epoch.json')
     # plot_digits(np.expand_dims(nn.weights[1][:,0], axis=0), 1)
     nn.train(training_set, 100, 16, 0.1, 1, validation_set)
 

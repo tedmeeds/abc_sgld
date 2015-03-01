@@ -7,7 +7,7 @@ class NeuralNetworkProblem(object):
         (self.X_train, self.T_train), (self.X_valid, self.T_valid), (self.X_test, self.T_test) = data
         self.N = len(self.X_train)
         self.training_set, self.validation_set, self.test_set = data
-        self.prior_penalty = 0.1
+        self.prior_penalty = 0.001
 
     # Skip
     def prior_rand(self):
@@ -145,7 +145,7 @@ class NeuralNetworkProblem(object):
             f_minus = self.loglike_x( x_minus, omega )
             gradient += (f_plus-f_minus) / delta
         gradient /= 2*d_theta*R
-        gradient_prior = self.prior_penalty*np.sign(theta)
+        gradient_prior = -self.prior_penalty*np.sign(theta)
         gradient += gradient_prior
         return -gradient
 

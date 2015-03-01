@@ -51,18 +51,18 @@ def plot_digits(data, numcols, shape=(28,28)):
     plt.show()
 
 class NeuralNetwork(object):
-    def __init__(self, config):
+    def __init__(self, config, eps=0.001):
         # config is a list with the number of neurons per layer, so len(config) equals the number of layers.
         self.config = config
         self.num_layers = len(config)
         # Initialize the biases
-        self.biases = np.array([np.random.randn(layer_size, 1) for layer_size in self.config[1:]])
+        self.biases = np.array([eps*np.random.randn(layer_size, 1) for layer_size in self.config[1:]])
         # Initialize the weights
         self.weights = []
         for i in range(self.num_layers-1):
             layer_size = self.config[i]
             next_layer_size = self.config[i+1]
-            weights = np.random.randn(next_layer_size, layer_size) / np.sqrt(layer_size)
+            weights = eps*np.random.randn(next_layer_size, layer_size) / np.sqrt(layer_size)
             self.weights.append(weights)
         self.weights = np.array(self.weights)
 
@@ -109,7 +109,7 @@ class NeuralNetwork(object):
     def backpropagation(self, x, y):
         grad_b = 0*self.biases
         grad_w = 0*self.weights
-        delta = (self.activations[-1] - y) * sigmoid_grad(self.pre_activations[-1])
+        delta = (self.activations[-1] - y) # * sigmoid_grad(self.pre_activations[-1])
         grad_b[-1] = delta
         grad_w[-1] = np.dot(delta, self.activations[-2].T)
         for layer in range(2, self.num_layers):
@@ -119,20 +119,38 @@ class NeuralNetwork(object):
             grad_w[-layer] = np.dot(delta, self.activations[-layer-1].T)
         return (grad_b, grad_w)
 
-    def test(self, data):
+    # def test(self, data):
+    #     errors = []
+    #     correct = []
+    #     for x, y in data:
+    #         reconstruction = self.feedforward(x)
+    #         error = np.nan_to_num(np.sum(-y*np.log(reconstruction+10**-10) - (1-y)*np.log(1-reconstruction+10**-10)))
+    #         errors.append(error)
+    #         reconstruction[reconstruction <= 0.5] = 0
+    #         reconstruction[reconstruction > 0.5] = 1
+    #         y_copy = y.copy()
+    #         y_copy[y_copy <= 0.5] = 0
+    #         y_copy[y_copy > 0.5] = 1
+    #         abs_correct = np.sum(reconstruction == y_copy) / float(len(y_copy))
+    #         correct.append(abs_correct)
+    #     return np.mean(errors), np.mean(correct)
+
+    def test(self, x,y):
         errors = []
         correct = []
-        for x, y in data:
-            reconstruction = self.feedforward(x)
-            error = np.nan_to_num(np.sum(-y*np.log(reconstruction+10**-10) - (1-y)*np.log(1-reconstruction+10**-10)))
-            errors.append(error)
-            reconstruction[reconstruction <= 0.5] = 0
-            reconstruction[reconstruction > 0.5] = 1
-            y_copy = y.copy()
-            y_copy[y_copy <= 0.5] = 0
-            y_copy[y_copy > 0.5] = 1
-            abs_correct = np.sum(reconstruction == y_copy) / float(len(y_copy))
-            correct.append(abs_correct)
+        #for x, y in data:
+        reconstruction = self.feedforward(x)
+        error = np.nan_to_num(np.sum(y*np.log(reconstruction+10**-10) + (1-y)*np.log(1-reconstruction+10**-10)))
+        error = error/(x.shape[0]*x.shape[1])
+        errors.append(error)
+        reconstruction[reconstruction <= 0.5] = 0
+        reconstruction[reconstruction > 0.5] = 1
+        y_copy = y.copy()
+        y_copy[y_copy <= 0.5] = 0
+        y_copy[y_copy > 0.5] = 1
+
+        abs_correct = np.sum(reconstruction == y_copy) / float(x.shape[0]*x.shape[1])
+        correct.append(abs_correct)
         return np.mean(errors), np.mean(correct)
 
     def test_old(self, data):

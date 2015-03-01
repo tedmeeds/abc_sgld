@@ -305,6 +305,8 @@ if __name__ == "__main__":
   
   params["keep_x"]       = keep_x
   
+  times = [10,100,1000,5000,10000,20000,30000,40000,50000]
+  
   #theta0 = np.array( [0.2])
   #x0     = None
   theta_range=None
@@ -319,6 +321,28 @@ if __name__ == "__main__":
   
   #problem = generate_exponential( exp_problem )
   params["grad_func"] = problem.two_sided_sl_gradient
+  algonames = ["SL-MCMC","SG-Langevin", "SG-HMC", "SG-Thermostats"]
+  algos = [run_mcmc,run_sgld, run_sghmc,run_thermostats]
+  
+  for algoname, algo in zip( algonames, algos):
+    errors = []
+    for chain_id in range(5):
+      np.random.seed(init_seed + 1000*chain_id)
+      theta0 = problem.p.theta_prior_rand()
+      while theta0[0] < 0.01:
+        theta0 = problem.p.theta_prior_rand()
+      while theta0[0] > 2.0:
+        theta0 = problem.p.theta_prior_rand()
+    
+      print "running chain %d for algo = %s    theta0 = %f"%(chain_id, algoname, theta0[0])
+    
+      run_result = algo( problem, params, theta0, x0 )
+  
+      if saveit:
+        pp.savefig("./images/%s-%s-posterior-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
+        pp.savefig("../../papers/uai-2015/images/%s-%s-posterior-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
+  
+  
   #params["grad_func"] = problem.two_sided_keps_gradient
 
   # # init randomly for MCMC chain

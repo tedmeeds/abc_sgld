@@ -24,12 +24,13 @@ S       = 5
 grad_params = {}
 
 # keep theta within bounds
-lower_bounds = np.array([0.001])
-upper_bounds = np.array([np.inf])
+lower_bounds = None #np.array([0.001])
+upper_bounds = None #np.array([np.inf])
 
 if __name__ == "__main__":
   # pp.close('all')
-  problem = NeuralNetworkProblem( NeuralNetwork([28*28, 100, 28*28]), load_mnist() )
+  nnparams = [28*28, 5, 28*28]
+  problem = NeuralNetworkProblem( NeuralNetwork(nnparams), load_mnist() )
   # Cheat by loading previous training NN
   # problem.nn.load('latest_epoch.json')
   chain_id = 1
@@ -41,11 +42,11 @@ if __name__ == "__main__":
   params["d_theta"] = d_theta
   params["eta"]     = eta
   params["C"]       = C
-  params["batch_size"] = 200
+  params["batch_size"] = 1000
   params["verbose_rate"] = verbose_rate
   params["grad_params"]  = {"logs":{"true":[],"true_abc":[],"2side_keps":[],"2side_sl":[]},\
                             "record_2side_sl_grad":False, "record_2side_keps_grad":False,"record_true_abc_grad":False,"record_true_grad":False,
-                            "2side_keps": {"R": 20}}
+                            "2side_keps": {"R": 10},"percent_to_change":0.25}
   params["lower_bounds"] = lower_bounds
   params["upper_bounds"] = upper_bounds
   params["keep_x"]       = keep_x
@@ -60,10 +61,13 @@ if __name__ == "__main__":
   # init randomly for MCMC chain
   np.random.seed(init_seed + 1000*chain_id)
 
+  print "nn", nnparams
+  print params
   # run algorithm
   # outs = run_thermostats( problem, params, theta0, x0 )
   #outs = run_sghmc( problem, params, theta0, x0 )
   outs = run_sgld( problem, params, theta0, x0 )
+  #outs = run_sghmc( problem, params, theta0, x0 )
   #outs = run_mcmc( problem, params, theta0, x0 )
 
   # view results of single chain

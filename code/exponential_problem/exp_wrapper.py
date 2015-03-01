@@ -7,14 +7,14 @@ import pylab as pp
 
 problem_params = default_params()
 
-problem_params["N"]               = 5
+problem_params["N"]               = 20
 problem_params["q_stddev"]        = 0.2
 problem_params["theta_star"]      = 0.15
 problem_params["epsilon"]         = 0.25*np.sqrt( 1.0 / (problem_params["N"]*problem_params["theta_star"]**2) )
 problem_params["alpha"]           = 0.1
 problem_params["beta"]            = 0.1
 problem_params["min_range"]       = 0.005
-problem_params["max_range"]       = 0.6
+problem_params["max_range"]       = 0.3
 #problem_params["alpha"]           = 3.75
 #problem_params["beta"]            = 1.01
 
@@ -53,7 +53,11 @@ class generate_exponential( object ):
   
   def loglike_x( self, x ):
     S,J = x.shape
-    L = logsumexp( self.kernel.logpdf( x ), 0 ) - np.log(S)
+    mu = x.mean()
+    vr = x.var()
+    f = spstats.norm( mu, np.sqrt(vr+self.p.epsilon**2) )
+    L = f.logpdf(self.y)
+    #L = logsumexp( self.kernel.logpdf( x ), 0 ) - np.log(S)
     return L
     
   def loglike_prior( self, theta ):

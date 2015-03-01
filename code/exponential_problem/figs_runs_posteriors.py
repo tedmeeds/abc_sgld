@@ -88,7 +88,7 @@ burnin = 100
 
 keep_x        = True 
 init_seed     = 4
-T             = 10000 + burnin # nbr of samples
+T             = 50000 + burnin # nbr of samples
 verbose_rate  = 100
 C             = 50.01    # injected noise variance parameter
 eta           = 0.005 # step size for Hamiltoniam dynamics
@@ -107,7 +107,7 @@ upper_bounds = np.array([np.inf])
 # ----------------------- #
 # common ransom seeds     #
 # ----------------------- #
-use_omega    = True    # use fixed random seeds for simulations
+use_omega    = False    # use fixed random seeds for simulations
 omega_rate   = 0.001    # probabilty of changing omegas
 omega_switch = True    # if true, randomly change omegas
 omega_sample = False   # sample omegas instead
@@ -119,7 +119,7 @@ omega_params = {"use_omega":use_omega, \
 
 if __name__ == "__main__": 
   pp.close('all')
-  saveit = False
+  saveit = True
   chain_id = 1
   params = {}
   params["chain_id"]  = chain_id
@@ -148,7 +148,7 @@ if __name__ == "__main__":
   problem = generate_exponential( exp_problem )
   
   seeds = np.arange(8)
-  theta_range = np.linspace( 0.01, 0.6, 200 )
+  theta_range = np.linspace( 0.01, 0.3, 200 )
   
   problem = generate_exponential( exp_problem )
   params["grad_func"] = problem.two_sided_sl_gradient
@@ -158,24 +158,24 @@ if __name__ == "__main__":
   np.random.seed(init_seed + 1000*chain_id)
   
   # run algorithm
-  np.random.seed(init_seed + 1000*chain_id)
-  sgnht = run_thermostats( problem, params, theta0, x0 )
-  algoname = "SG-Thermostats"
-  view_posterior( problem, theta_range, sgnht["THETA"], algoname, burnin=1000 )
-  if saveit:
-    pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-    pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  view_theta_timeseries( problem, theta_range, sgnht["THETA"], algoname, howmany = 1000 )
-  if saveit:
-    pp.savefig("exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-    pp.savefig("../../papers/uai-2015/images/exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  times = [10,100,1000,5000,10000,20000,30000,40000,50000,100000]
-  errs,times = total_variational_distance_errors( problem, sgnht["THETA"][burnin:], times )
-  print "eta ", eta
-  print "d_theta", d_theta
-  print "grad type ", params["grad_func"]
-  print "times", times
-  print "tvd err",errs
+  # np.random.seed(init_seed + 1000*chain_id)
+  # sgnht = run_thermostats( problem, params, theta0, x0 )
+  # algoname = "SG-Thermostats"
+  # view_posterior( problem, theta_range, sgnht["THETA"], algoname, burnin=1000 )
+  # if saveit:
+  #   pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  #   pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  # view_theta_timeseries( problem, theta_range, sgnht["THETA"], algoname, howmany = 1000 )
+  # if saveit:
+  #   pp.savefig("exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  #   pp.savefig("../../papers/uai-2015/images/exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  # times = [10,100,1000,5000,10000,20000,30000,40000,50000,100000]
+  # errs,times = total_variational_distance_errors( problem, sgnht["THETA"][burnin:], times )
+  # print "eta ", eta
+  # print "d_theta", d_theta
+  # print "grad type ", params["grad_func"]
+  # print "times", times
+  # print "tvd err",errs
   
   # algoname = "SGHMC"
   # np.random.seed(init_seed + 1000*chain_id)
@@ -198,44 +198,44 @@ if __name__ == "__main__":
   # print "times", times
   # print "tvd err",errs
   #
-  # np.random.seed(init_seed + 1000*chain_id)
-  # sgld = run_sgld( problem, params, theta0, x0 )
-  # algoname = "SG-Langevin"
-  # view_posterior( problem, theta_range, sgld["THETA"], algoname, burnin=burnin )
-  # if saveit:
-  #   pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #   pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # view_theta_timeseries( problem, theta_range, sgld["THETA"], algoname, howmany = 1000 )
-  # if saveit:
-  #   pp.savefig("exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #   pp.savefig("../../papers/uai-2015/images/exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #
-  # times = [10,100,1000,5000,10000,20000,30000,40000,50000]
-  # errs,times = total_variational_distance_errors( problem, sgld["THETA"][burnin:], times )
-  # print "eta ", eta
-  # print "d_theta", d_theta
-  # print "grad type ", params["grad_func"]
-  # print "times", times
-  # print "tvd err",errs
+  np.random.seed(init_seed + 1000*chain_id)
+  sgld = run_sgld( problem, params, theta0, x0 )
+  algoname = "SG-Langevin"
+  view_posterior( problem, theta_range, sgld["THETA"], algoname, burnin=burnin )
+  if saveit:
+    pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+    pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  view_theta_timeseries( problem, theta_range, sgld["THETA"], algoname, howmany = 1000 )
+  if saveit:
+    pp.savefig("exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+    pp.savefig("../../papers/uai-2015/images/exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+
+  times = [10,100,1000,5000,10000,20000,30000,40000,50000]
+  errs,times = total_variational_distance_errors( problem, sgld["THETA"][burnin:], times )
+  print "eta ", eta
+  print "d_theta", d_theta
+  print "grad type ", params["grad_func"]
+  print "times", times
+  print "tvd err",errs
   #
   #
   #burnin = 100
-  # times = [10,100,1000,5000,10000,20000,30000,40000,50000]
-  # np.random.seed(init_seed + 1000*chain_id)
-  # mcmc = run_mcmc( problem, params, theta0, x0 )
-  # algoname = "ABC-MCMC"
-  # view_posterior( problem, theta_range, mcmc["THETA"], algoname, burnin=1000 )
-  # if saveit:
-  #   pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #   pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # view_theta_timeseries( problem, theta_range, mcmc["THETA"], algoname, howmany = 1000 )
-  # if saveit:
-  #   pp.savefig("exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #   pp.savefig("../../papers/uai-2015/images/exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #
-  # errs,times = total_variational_distance_errors( problem, mcmc["THETA"][burnin:], times )
-  # print times
-  # print errs
+  times = [10,100,1000,5000,10000,20000,30000,40000,50000]
+  np.random.seed(init_seed + 1000*chain_id)
+  mcmc = run_mcmc( problem, params, theta0, x0 )
+  algoname = "ABC-MCMC"
+  view_posterior( problem, theta_range, mcmc["THETA"], algoname, burnin=1000 )
+  if saveit:
+    pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+    pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+  view_theta_timeseries( problem, theta_range, mcmc["THETA"], algoname, howmany = 1000 )
+  if saveit:
+    pp.savefig("exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+    pp.savefig("../../papers/uai-2015/images/exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
+
+  errs,times = total_variational_distance_errors( problem, mcmc["THETA"][burnin:], times )
+  print times
+  print errs
   #
   #
   # results = {}

@@ -88,14 +88,14 @@ burnin = 1000
 
 keep_x        = True 
 init_seed     = 4
-T             = 50000 + burnin # nbr of samples
+T             = 10000 + burnin # nbr of samples
 verbose_rate  = 1000
-C             = 10.01    # injected noise variance parameter
-eta           = 0.005 # step size for Hamiltoniam dynamics
+C             = 200.1    # injected noise variance parameter
+eta           = 0.001 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients
-d_theta = 0.01  # step size for gradient estimate
+d_theta = 0.001  # step size for gradient estimate
 S       = 5
 grad_params = {}
   
@@ -107,7 +107,7 @@ upper_bounds = np.array([np.inf])
 # ----------------------- #
 # common ransom seeds     #
 # ----------------------- #
-use_omega    = True    # use fixed random seeds for simulations
+use_omega    = False    # use fixed random seeds for simulations
 omega_rate   = 0.01    # probabilty of changing omegas
 omega_switch = True    # if true, randomly change omegas
 omega_sample = False   # sample omegas instead
@@ -123,7 +123,7 @@ else:
   
 if __name__ == "__main__": 
   pp.close('all')
-  saveit = True
+  saveit = False
   chain_id = 1
   params = {}
   params["chain_id"]  = chain_id
@@ -163,8 +163,14 @@ if __name__ == "__main__":
   # init randomly for MCMC chain
   np.random.seed(init_seed + 1000*chain_id)
   
-  algonames = ["SL-MCMC","SG-Langevin", "SG-HMC", "SG-Thermostats"]
-  algos = [run_mcmc,run_sgld, run_sghmc,run_thermostats]
+  #algonames = ["SL-MCMC","SG-Langevin", "SG-HMC", "SG-Thermostats"]
+  #algos = [run_mcmc,run_sgld, run_sghmc,run_thermostats]
+  
+  algonames = ["SG-Langevin","SG-HMC","SG-Thermostats"]
+  algos     = [run_sgld, run_sghmc,run_thermostats]
+  
+  algonames = ["SG-HMC"]
+  algos     = [run_sghmc]
   # run algorithm
   # np.random.seed(init_seed + 1000*chain_id)
   # sgnht = run_thermostats( problem, params, theta0, x0 )
@@ -221,6 +227,17 @@ if __name__ == "__main__":
     
       print "running chain %d for algo = %s    theta0 = %f"%(chain_id, algoname, theta0[0])
     
+      # if algoname == "SG-Langevin":
+      #   params["eta"] = 0.02
+      #   params["omega_params"]["omega_rate"] = 0.5
+      #   sticky_str = "omega-rate-0p5"
+      #   print "  setting eta ",params["eta"]
+      # else:
+      #   params["eta"] = 0.005
+      #   params["omega_params"]["omega_rate"] = 0.01
+      #   sticky_str = "omega-rate-0p01"
+      #   print "  setting eta ",params["eta"]
+        
       run_result = algo( problem, params, theta0, x0 )
     
       view_posterior( problem, theta_range, run_result["THETA"], algoname, burnin=burnin )

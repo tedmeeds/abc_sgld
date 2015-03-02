@@ -120,73 +120,29 @@ class generate_exponential( object ):
     
     params["logs"]["true_abc"].append( np.squeeze( np.array([grad, theta, theta_plus, mu_plus,f_plus,theta_minus, mu_minus,f_minus])) )
     return -grad 
-        
-  # def one_sided_gradient( self, theta, x, omega, c, gradients ):
-  #   exact_grad = ( self.y-x )/self.p.epsilon**2
-  #
-  #   #log_theta = np.log(theta)
-  #
-  #   f = self.loglike_x(x)
-  #   state = np.random.get_state()
-  #
-  #   theta_plus = theta+c #np.exp( log_theta + c )
-  #
-  #   x_plus = self.simulate( theta_plus, omega )
-  #
-  #   f_plus = self.loglike_x(x_plus)
-  #
-  #   grad = (f_plus-f)/c + (self.p.alpha-1)*np.log(theta) - self.p.beta*theta
-  #
-  #   if grad < 0:
-  #     grad = max(np.array([-15]),grad)
-  #   else:
-  #     grad = min(np.array([15]),grad)
-  #   #grad = exact_grad*(x_plus-x)/(theta_plus-theta) + (self.p.alpha-1)/theta - self.p.beta
-  #
-  #   #print "one-sided: ", theta_plus, x_plus, theta, x, "exact ", exact_grad, "grad_x  ", (x_plus-x)/(theta_plus-theta), "grad_prior: ", (self.p.alpha-1)*np.log(theta) - self.p.beta*theta
-  #
-  #   #grad = exact_grad*(x_plus-x_minus)/(theta_plus-theta_minus)+ (self.p.alpha-1)*np.log(theta) - self.p.beta*theta
-  #   #return -grad
-  #   gradients.append( np.squeeze( np.array([grad, theta, x, f, theta_plus, x_plus, f_plus])) )
-  #   return -grad
-  #
-  # def one_sided_gradient_old( self, theta, x, omega, c ):
-  #   f = self.loglike_x(x)
-  #
-  #   x_plus = self.simulate( theta+c, omega )
-  #
-  #   f_plus = self.loglike_x(x_plus)
-  #
-  #   grad = (f_plus-f)/c + (self.p.alpha-1)/theta - self.p.beta
-  #
-  #   return -grad
     
   def simulate_for_gradient(self, theta, d_theta, omega, S, params ): 
     seed = None
+    self.J=1
+    seeds   = []
     
     seeds   = []
-    X_plus  = np.zeros( (S,1))
-    X_minus = np.zeros( (S,1))
+    X_plus  = np.zeros( (S,self.J))
+    X_minus = np.zeros( (S,self.J))
+
     theta_minus = max(0.01,theta-d_theta)
     theta_plus = theta_minus + 2*d_theta
-    for s in range(S):
+    
+    if omega is None:
+      state = np.random.get_state()
+    
+    X_plus = self.simulate( theta_plus, omega, S )
+    
+    if omega is None:
+      np.random.set_state(state)
       
-      if omega is not None:
-        seed = omega[s]
+    X_minus = self.simulate( theta_minus, omega, S )
        
-      if seed is None:
-        state = np.random.get_state()
-      #pdb.set_trace()
-      X_plus = self.simulate( theta_plus, omega, S )
-
-      if seed is None:
-        np.random.set_state(state)
-      X_minus = self.simulate( theta_minus, omega, S )
-      
-      
-      #pdb.set_trace()
-      seeds.append(seed)
-      
     return X_plus, X_minus, seeds, theta_plus, theta_minus
        
   def two_sided_keps_gradient( self, theta, d_theta, omega, S, params ):

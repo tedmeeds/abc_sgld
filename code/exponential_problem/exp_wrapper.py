@@ -180,7 +180,7 @@ class generate_exponential( object ):
     f_plus  = Lplus.logpdf( self.y )
     f_minus = Lminus.logpdf( self.y )
     
-    grad = (f_plus-f_minus)/(theta_plus-theta_minus) + (self.p.alpha-1)/theta - self.p.beta
+    grad = (f_plus-f_minus)/(theta_plus-theta_minus) + (self.p.alpha-1)/(theta+1e-3) - self.p.beta
     
     #params["logs"]["2side_sl"].append( np.squeeze( np.array([grad, theta, theta_plus, X_plus.mean(),f_plus,theta_minus, X_minus.mean(),f_minus])) )
     return -grad    

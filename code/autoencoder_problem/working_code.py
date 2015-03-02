@@ -31,7 +31,7 @@ def get_omega(problem, batch_size):
   if get_omega.counter % 50 == 0:
     reconstruction_error, num_correct = problem.nn.test(problem.X_valid.T,problem.X_valid.T)
     print "Reconstruction error: {}, average percentage of pixels correct: {}%".format(reconstruction_error, num_correct*100)
-    problem.nn.save('thermo-saved.json'.format())
+    # problem.nn.save('thermo-saved.json'.format())
   return mini_batches.pop()
 get_omega.mini_batches = []
 get_omega.counter = 0
@@ -136,7 +136,8 @@ def run_sgld( problem, params, theta, x = None ):
     # samples omegas  #
     # --------------- #
     omega = get_omega(problem, batch_size)
-
+    d_theta *= 0.995
+    d_theta = max(d_theta, 1e-10)
     if keep_x:
       # probably too many simulations
       x = problem.simulate( theta, omega, S )
@@ -347,7 +348,8 @@ def run_thermostats( problem, params, theta, x = None ):
 
     # update thermostat
     xi = xi + eta*(p*p - 1.0)
-
+    d_theta *= 0.995
+    # C *= 0.999
     # --------------- #
     # samples omegas  #
     # --------------- #

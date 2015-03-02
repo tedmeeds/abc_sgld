@@ -134,16 +134,20 @@ class NeuralNetworkProblem(object):
     def two_sided_keps_gradient(self, theta, d_theta, omega, S, params):
         # return -self.true_gradient(theta, omega)
         R = params['2side_keps']['R']
+        percent_change = params['2side_keps']["percent_to_change"]
         gradient = 0.0*theta
+        change_mask = np.zeros(theta.shape)
+        perm = np.random.permutation( len(theta) )[:int(percent_change*len(theta))]
+        change_mask[perm] = 1
         for r in range(R):
             delta = 2*np.random.binomial(1, 0.5, theta.shape)-1
-            self.set_weights( theta + d_theta*delta )
+            self.set_weights( theta + d_theta*delta * change_mask )
             x_plus = self.forwardpass( self.X_train[omega,:])
-            self.set_weights( theta - d_theta*delta )
+            self.set_weights( theta - d_theta*delta * change_mask )
             x_minus = self.forwardpass( self.X_train[omega,:])
             f_plus  = self.loglike_x( x_plus, omega )
             f_minus = self.loglike_x( x_minus, omega )
-            gradient += (f_plus-f_minus) / delta
+            gradient += (f_plus-f_minus) * delta * change_mask
         gradient /= 2*d_theta*R
         gradient_prior = -self.prior_penalty*np.sign(theta)
         gradient += gradient_prior

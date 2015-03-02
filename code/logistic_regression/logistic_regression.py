@@ -26,9 +26,38 @@ def onehot( t, K ):
   for trow,tk in zip( T, t ):
     trow[tk] = 1.0
   return T
-def load_mnist():
+
+def load_mnist(digits=None):
   f = gzip.open('../../data/mnist.pkl.gz', 'rb')
   data = cPickle.load(f)
+
+  if digits is not None:
+    Xtrain = []
+    Xvalid = np.array( ([]))
+    Xtest  = np.array( ([]))
+    k = 0
+    for digit in digits:
+      train_ids = pp.find( data[0][1] == digit )
+      valid_ids = pp.find( data[1][1] == digit )
+      test_ids  = pp.find( data[2][1] == digit )
+
+      if digit == digits[0]:
+        Xtrain = data[0][0][train_ids,:]
+        Xvalid = data[1][0][valid_ids,:]
+        Xtest  = data[2][0][test_ids,:]
+        Ttrain = k*np.ones(len(train_ids))
+        Tvalid = k*np.ones(len(valid_ids))
+        Ttest = k*np.ones(len(test_ids))
+      else:
+        Xtrain = np.vstack( ( Xtrain, data[0][0][train_ids,:] ))
+        Xvalid = np.vstack( ( Xvalid, data[1][0][valid_ids,:] ))
+        Xtest = np.vstack( ( Xtest, data[2][0][test_ids,:] ))
+
+        Ttrain = np.hstack( ( Ttrain, k*np.ones(len(train_ids)) ))
+        Tvalid = np.hstack( ( Tvalid, k*np.ones(len(valid_ids)) ))
+        Ttest = np.hstack( ( Ttest, k*np.ones(len(test_ids)) ))
+      k += 1
+    return (Xtrain,Ttrain),(Xvalid,Tvalid),(Xtest,Ttest)
   return data
 
 def softmax( A, return_log=False ):
@@ -50,7 +79,7 @@ def classification_error( t, y ):
 
 
 class MulticlassLogisticRegression(object):
-  def __init__( self, T_mat, X_mat, T_test, X_test ):
+  def __init__( self, T_mat, X_mat, T_test, X_test, std ):
     self.sp_eps = 0.01
 
     self.X = X_mat
@@ -67,7 +96,7 @@ class MulticlassLogisticRegression(object):
 
     # assume X_mat N*D
     N,self.D = X_mat.shape
-    self.W = 0.0001 * np.random.randn( self.D, self.K)
+    self.W = np.random.normal(0, std, (self.D, self.K))
 
     self.batchsize = 100
     assert N == self.N, "should be same shape"
@@ -172,7 +201,7 @@ class MulticlassLogisticRegression(object):
 
 
     G = np.zeros( (self.D,self.K))
-    nrepeats = 1000
+    nrepeats = 10
     new_ids = np.random.permutation( self.N )[:self.batchsize]
     for i in range(nrepeats):
 
@@ -215,14 +244,12 @@ class MulticlassLogisticRegression(object):
     count = 0
     last_train = train_error
     GM = np.zeros( self.W.shape )
-    GM_sp = np.zeros(self.W.shape)
-    W_sp = np.copy(self.W)
     print "INIT LL %0.4f train_error %0.3f  test_error %0.3f"%(LL, train_error, test_error)
     for t in xrange( max_steps ):
-      G_sp = self.sp_gradient( self.W )
+      G = self.sp_gradient( self.W )
       #Y = softmax( np.dot( self.X[self.ids,:], self.W ) )
       #G = self.gradient_ema_targets( self.W )
-      G = self.gradient( self.W )
+      # G = self.gradient( self.W )
       #self.W = self.W + lr*self.gradient( self.W, Y )
 
       #self.TT[self.ids,:] = tt_mom*self.T[self.ids,:] + (1-tt_mom)*Y
@@ -230,10 +257,7 @@ class MulticlassLogisticRegression(object):
       GM = (1-mom)*GM + mom*G
       self.W = self.W + lr*GM
 
-      GM_sp = (1-mom)*GM_sp * mom*G_sp
-      W_sp = W_sp * lr*GM_sp
       lr *= decay #pow(lr,decay)
-
       cur_time = time.time()
 
       if cur_time - last_time > 15:
@@ -254,7 +278,7 @@ class MulticlassLogisticRegression(object):
           count = 0
         last_time = time.time()
 
-        print "%4d LL %0.4f grad %g\t lr %g train_error %0.3f  test_error %0.3f"%(t+1,LL,G[0][0], lr, train_error, test_error)
+        print "%4d LL %0.4f grad %g\t lr %g train_error %0.5f %%  test_error %0.5f %%"%(t+1,LL,G[0][0], lr, train_error*100, test_error*100)
         last_train = train_error
       #self.sp_eps *= 0.99
 
@@ -262,22 +286,28 @@ if __name__ == "__main__":
   #assert False, "add binary label per class, compare log-likelihoods, classification error"
   np.random.seed(1)
   K = 10
-  lr = 0.2
+  lr = 0.1
   decay = 0.99999
   init_w_std = 0.001
   mom = 0.9
   max_steps = 300000
-  print "loading mnist..."
-  (X_train,t_train),(X_valid,t_valid),(X_test,t_test) = load_mnist()
-  print "one-hotting labels.."
-  T_train = onehot( t_train, K )
-  T_valid = onehot( t_valid, K )
-  T_test  = onehot( t_test, K )
-
+  digits = [0,1]
+  ndigits = len(digits)
+  K = ndigits
+  mnist = load_mnist(digits)
+  (X_train,t_train),(X_valid,t_valid),(X_test,t_test) = mnist
+  T_train = onehot( t_train, ndigits )
+  T_valid = onehot( t_valid, ndigits )
+  T_test  = onehot( t_test, ndigits )
   m = X_train.mean(0)
+  s = X_train.std(0)
+  ok = pp.find(s>0)
   X_train -= m
   X_valid -= m
   X_test  -= m
+  X_train[:,ok] /= s[ok]
+  X_valid[:,ok] /= s[ok]
+  X_test[:,ok] /= s[ok]
 
   # print "constructing LR model..."
   # #LR_model = MulticlassLogisticRegression( T_valid, X_valid, T_test, X_test )

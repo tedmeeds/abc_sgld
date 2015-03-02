@@ -29,15 +29,28 @@ def get_omega(problem, batch_size):
     N = problem.N
     perms = np.random.permutation(N)
     mini_batches += [perms[k:k+batch_size] for k in range(0, N, batch_size)]
-  if get_omega.counter % 50 == 0:
+  if get_omega.counter % 10 == 0:
     LL, Y = problem.lr.loglikelihood( problem.lr.W, return_Y = True )
     Ytest, logYtest = softmax( np.dot( problem.lr.Xtest, problem.lr.W ), return_log = True )
     y_test = np.argmax(Ytest,1)
+    if get_omega.average_counter == 0:
+      get_omega.Ytest_avg = Ytest.copy()
+    else:
+      get_omega.Ytest_avg = get_omega.Ytest_avg + Ytest
+      #get_omega.y_test_avg /= get_omega.average_counter+1
+
+    get_omega.average_counter+=1
+    get_omega.y_test_avg = np.argmax(get_omega.Ytest_avg/float(get_omega.average_counter),1)
     error = classification_error( problem.lr.t_test, y_test )
-    print "Classification error: {}%".format(error*100)
+    avg_error =classification_error( problem.lr.t_test, get_omega.y_test_avg )
+    print "Classification error: {}%   {}%   max abs W {}".format(error*100,avg_error*100,np.mean( np.abs( problem.lr.W)))
+    #print "avg abs W :", np.mean( np.abs( problem.lr.W))
   return mini_batches.pop()
 get_omega.mini_batches = []
 get_omega.counter = 0
+get_omega.average_counter = 0
+get_omega.y_test_avg = 0
+get_omega.Ytest_avg = 0
 
 def bounce_off_boundaries( theta, p, lower_bounds, upper_bounds ):
   D = len(theta)
@@ -54,6 +67,112 @@ def bounce_off_boundaries( theta, p, lower_bounds, upper_bounds ):
         p[d] *= -1
   return theta, p
 
+
+def accept_move(log_acceptance):
+  accept = False
+  if log_acceptance < 0:
+    if np.random.rand() < np.exp( log_acceptance ):
+      # accept downward move
+      accept=True
+  else:
+    # accept upward move
+    accept = True
+  return accept
+
+def run_mcmc( problem, params, theta, x = None ):
+  T             = params["T"]
+  S             = params["S"]
+  verbose_rate  = params["verbose_rate"]
+  batch_size  = params["batch_size"]
+  # keep theta within bounds
+  lower_bounds = params["lower_bounds"]
+  upper_bounds = params["upper_bounds"]
+  propose_params = params['propose']
+
+  keep_x        = True
+  omega = get_omega(problem, batch_size)
+  outputs = {}
+
+  # pseudo-data
+  if keep_x:
+    if x is None:
+      x = problem.simulate( theta, omega, S )
+    assert len(x.shape) == 2, "x should be S by dim"
+    loglike_x = problem.loglike_x( x, omega )
+    X      = [x]
+    LL     = [loglike_x]
+  else:
+    x         = None
+    loglike_x = None
+
+  p_dummy = np.random.randn(len(theta))
+
+  THETAS = [theta]
+  OMEGAS = [omega]
+  num_accepts = 0
+  # sample...
+  for t in xrange(T):
+
+    # -------------------- #
+    # sample (theta, x)    #
+    # -------------------- #
+    theta_proposal = problem.propose( theta, params )
+    # bounce position off parameter boundaries
+    # theta_proposal, p_dummy = bounce_off_boundaries( theta_proposal, p_dummy, lower_bounds, upper_bounds )
+
+    x_proposal     = problem.simulate( theta_proposal, omega, S )
+
+    # using kernel_epsilon( observations | x )
+    loglike_x_proposal = problem.loglike_x( x_proposal, omega )
+
+    # a log-normal proposal, so we need to compute this
+    # loglike_q_from_proposal_to_theta = problem.loglike_proposal_theta( theta, theta_proposal )
+    # loglike_q_from_theta_to_proposal = problem.loglike_proposal_theta( theta_proposal, theta )
+    loglike_q_from_proposal_to_theta = 0
+    loglike_q_from_theta_to_proposal = 0
+
+    # loglike_prior_theta
+    loglike_prior_theta           = problem.loglike_prior( theta, params )
+    loglike_prior_theta_proposal  = problem.loglike_prior( theta_proposal, params )
+
+    log_acceptance =  np.sum(loglike_x_proposal) + np.sum(loglike_prior_theta_proposal) + loglike_q_from_proposal_to_theta \
+                    - np.sum(loglike_x)          - np.sum(loglike_prior_theta)          - loglike_q_from_theta_to_proposal
+
+    if accept_move(log_acceptance):
+      num_accepts += 1
+      x         = x_proposal
+      theta     = theta_proposal
+      loglike_x = loglike_x_proposal
+
+    if t % 10 == 0:
+      print "Acceptance percentage: {}%".format(num_accepts*100.0/(t+1))
+
+    # --------------- #
+    # samples omegas  #
+    # --------------- #
+    omega = get_omega(problem, batch_size)
+
+
+    if keep_x:
+      #x = problem.simulate( theta, omega, S )
+      #loglike_x = problem.loglike_x( x )
+      LL.append(loglike_x)
+      X.append(x)
+
+    THETAS.append(theta)
+    OMEGAS.append(omega)
+
+
+    if np.mod(t+1,verbose_rate)==0:
+      print "t = %04d    loglik = %3.3f    theta = %3.3f    x = %3.3f"%(t+1,loglike_x,theta[0],x[0][0])
+
+  outputs["THETA"] = np.squeeze(np.array( THETAS))
+  outputs["OMEGA"] = np.squeeze(np.array(OMEGAS))
+
+  if keep_x:
+    outputs["X"] = np.squeeze(np.array(X))
+    outputs["LL"] = np.squeeze(np.array(LL))
+  return outputs
 
 def run_sgld( problem, params, theta, x = None ):
 
@@ -157,6 +276,8 @@ def run_sgld( problem, params, theta, x = None ):
         print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0][0])
       else:
         print "t = %04d    theta0 = %3.3f"%(t+1,theta[0])
+
+
 
   outputs["THETA"] = np.squeeze(np.array( THETAS))
   outputs["OMEGA"] = np.squeeze(np.array(OMEGAS))
@@ -350,7 +471,9 @@ def run_thermostats( problem, params, theta, x = None ):
     # theta, p = bounce_off_boundaries( theta, p, lower_bounds, upper_bounds )
 
     # update thermostat
-    xi = xi + eta*(p*p - 1.0)
+    #xi = xi + eta*(p*p - 1.0)
+    xi = xi + eta*(np.dot(p.T,p)/len(p) - 1.0)
+    #print xi, p[0], grad_U[0]
     # d_theta *= 0.995
     # C *= 0.999
     # --------------- #

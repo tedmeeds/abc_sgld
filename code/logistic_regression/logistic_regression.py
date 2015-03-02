@@ -262,9 +262,9 @@ if __name__ == "__main__":
   #assert False, "add binary label per class, compare log-likelihoods, classification error"
   np.random.seed(1)
   K = 10
-  lr = 0.002
+  lr = 0.2
   decay = 0.99999
-  init_w_std = 0.000001
+  init_w_std = 0.001
   mom = 0.9
   max_steps = 300000
   print "loading mnist..."

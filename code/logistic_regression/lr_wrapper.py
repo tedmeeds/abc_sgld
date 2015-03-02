@@ -11,9 +11,11 @@ class LogisticRegressionProblem(object):
         return self.lr.loglikelihood(self.lr.W, ids=omega)
 
     def simulate(self, theta, seed = None, S = 1):
+        self.lr.W = theta.reshape(28*28, 10)
         return softmax( np.dot( self.lr.X[seed, :], theta.reshape(28*28, 10) ), return_log = False )
 
     def true_gradient(self, theta, omega):
+        self.lr.W = theta.reshape(28*28, 10)
         Y = softmax( np.dot( self.lr.X[omega,:], theta.reshape(28*28, 10) ) )
         DIF = self.lr.T[omega,:]-Y
         G = np.zeros( (28*28, 10) )

@@ -15,7 +15,7 @@ init_seed     = 1
 T             = 50000 # nbr of samples
 verbose_rate  = 1000
 C             = 20.01    # injected noise variance parameter
-eta           = 1e-1 # step size for Hamiltoniam dynamics
+eta           = 1e2 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients

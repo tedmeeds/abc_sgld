@@ -34,7 +34,7 @@ def get_omega(problem, batch_size):
     Ytest, logYtest = softmax( np.dot( problem.lr.Xtest, problem.lr.W ), return_log = True )
     y_test = np.argmax(Ytest,1)
     error = classification_error( problem.lr.t_test, y_test )
-    print "Classification error: {}%".format(error)
+    print "Classification error: {}%".format(error*100)
   return mini_batches.pop()
 get_omega.mini_batches = []
 get_omega.counter = 0

@@ -350,6 +350,7 @@ def run_thermostats( problem, params, theta, x = None ):
     if grad_U_params["record_true_grad"]:
       grad_U_dummy = problem.true_gradient( theta, grad_U_params )
 
+    #pdb.set_trace()
     # full step momentum
     p = p - xi*p*eta - grad_U*eta + np.sqrt(2.0*C*eta)*np.random.randn( D )
     # full step position
@@ -359,8 +360,9 @@ def run_thermostats( problem, params, theta, x = None ):
     # theta, p = bounce_off_boundaries( theta, p, lower_bounds, upper_bounds )
 
     # update thermostat
-    xi = xi + eta*(p*p - 1.0)
+    xi = xi + eta*(np.dot(p.T,p)/len(p) - 1.0)
 
+    print xi, max( np.abs(p)), max( np.abs(theta))
     # --------------- #
     # samples omegas  #
     # --------------- #
@@ -379,7 +381,7 @@ def run_thermostats( problem, params, theta, x = None ):
 
     if np.mod(t+1,verbose_rate)==0:
       if keep_x:
-        print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f  xi0 = %3.3f"%(t+1,loglike_x,theta[0],x[0][0], xi[0])
+        print "t = %04d    loglik = %3.3f "%(t+1,loglike_x)
       else:
         print "t = %04d    theta0 = %3.3f"%(t+1,theta[0])
 

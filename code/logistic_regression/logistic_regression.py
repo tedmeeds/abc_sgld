@@ -107,18 +107,18 @@ class MulticlassLogisticRegression(object):
       X = self.X
 
     if ids is None:
-      Y, logY = softmax( np.dot( self.X, W ), return_log = True )
+      Y, logY = softmax( np.dot( X, W ), return_log = True )
 
       log_like_per_n = np.sum( self.T * logY, 1 )
 
-      loglike_data = np.sum( log_like_per_n )/self.N
+      loglike_data = np.sum( log_like_per_n )/len(X)
 
       if return_Y:
         return loglike_data, Y
       else:
         return loglike_data
     else:
-      Y, logY = softmax( np.dot( self.X[ids,:], W ), return_log = True )
+      Y, logY = softmax( np.dot( X[ids,:], W ), return_log = True )
 
       log_like_per_n = np.sum( self.T[ids,:] * logY, 1 )
 
@@ -174,8 +174,9 @@ class MulticlassLogisticRegression(object):
     for k in range(self.K):
       g_k = np.dot( DIF[:,k].T, self.X[ids,:] ).T
       G[:,k] = g_k
-    G = -1e-3*G/2.0
-    return self.batchsize*G/self.N
+    G = self.batchsize*G/self.N
+    G -= gamma*W
+    return G
 
   def gradient_ema_targets( self, W):
     new_ids = np.random.permutation( self.N )[:self.batchsize]
@@ -281,7 +282,7 @@ class MulticlassLogisticRegression(object):
           'LLs': [ll.tolist() for ll in LLs]
         }
 
-        file = open("LR.json", "w")
+        file = open("LR2.json", "w")
         json.dump(data, file)
         file.close()
         print 'saved to file'

@@ -57,7 +57,7 @@ def get_omega(problem, batch_size):
       'LLs': [ll.tolist() for ll in get_omega.LLs]
     }
 
-    file = open("sampling-mcmc.json", "w")
+    file = open("sampling-sgld.json", "w")
     json.dump(data, file)
     file.close()
     print 'saved to file'
@@ -249,7 +249,7 @@ def run_sgld( problem, params, theta, x = None ):
     # ----------------------------- #
 
     # estimate stochastic gradient
-    grad_U = grad_U_func( theta, d_theta, omega, S, grad_U_params)
+    grad_U = grad_U_func( theta, d_theta, omega, S, dict(grad_U_params.items() + params.items()))
     #
     if grad_U_params["record_2side_sl_grad"]:
       grad_U_dummy = problem.two_sided_sl_gradient( theta, d_theta, omega, S, grad_U_params )

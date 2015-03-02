@@ -9,6 +9,7 @@ from scipy import stats as spstats
 from lr_wrapper import *
 from working_code import *
 from logistic_regression import *
+import json
 
 keep_x        = False
 init_seed     = 1
@@ -67,6 +68,12 @@ if __name__ == "__main__":
   params["keep_x"]       = keep_x
   params["propose"] = {'q': 0.5}
   params['prior'] = {'gamma': 1e-3}
+
+  file = open('LR.json', "r")
+  data = json.load(file)
+  file.close()
+  W = np.array([np.array(w) for w in data["weights"][-1]])
+  problem.lr.W = W
 
   theta0 = problem.lr.W.flatten()
   # C = [C]*len(theta0)

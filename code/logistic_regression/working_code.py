@@ -29,7 +29,7 @@ def get_omega(problem, batch_size):
     N = problem.N
     perms = np.random.permutation(N)
     mini_batches += [perms[k:k+batch_size] for k in range(0, N, batch_size)]
-  if get_omega.counter % 10 == 0:
+  if get_omega.counter % 100 == 0:
     LL, Y = problem.lr.loglikelihood( problem.lr.W, return_Y = True )
     Ytest, logYtest = softmax( np.dot( problem.lr.Xtest, problem.lr.W ), return_log = True )
     y_test = np.argmax(Ytest,1)
@@ -42,15 +42,36 @@ def get_omega(problem, batch_size):
     get_omega.average_counter+=1
     get_omega.y_test_avg = np.argmax(get_omega.Ytest_avg/float(get_omega.average_counter),1)
     error = classification_error( problem.lr.t_test, y_test )
-    avg_error =classification_error( problem.lr.t_test, get_omega.y_test_avg )
-    print "Classification error: {}%   {}%   max abs W {}".format(error*100,avg_error*100,np.mean( np.abs( problem.lr.W)))
+    avg_error = classification_error( problem.lr.t_test, get_omega.y_test_avg )
+    print "LL: {}, Classification error: {}%   {}%   max abs W {}".format(LL, error*100,avg_error*100,np.mean( np.abs( problem.lr.W)))
     #print "avg abs W :", np.mean( np.abs( problem.lr.W))
+    get_omega.test_errors.append(error)
+    get_omega.avg_test_errors.append(avg_error)
+    get_omega.weights.append(problem.lr.W)
+    get_omega.LLs.append(LL)
+
+    data = {
+      'test_errors': get_omega.test_errors,
+      'avg_test_errors': get_omega.avg_test_errors,
+      'weights': [w.tolist() for w in get_omega.weights],
+      'LLs': [ll.tolist() for ll in get_omega.LLs]
+    }
+
+    file = open("sampling-mcmc.json", "w")
+    json.dump(data, file)
+    file.close()
+    print 'saved to file'
+
   return mini_batches.pop()
 get_omega.mini_batches = []
 get_omega.counter = 0
 get_omega.average_counter = 0
 get_omega.y_test_avg = 0
 get_omega.Ytest_avg = 0
+get_omega.test_errors = []
+get_omega.avg_test_errors = []
+get_omega.weights = []
+get_omega.LLs = []
 
 def bounce_off_boundaries( theta, p, lower_bounds, upper_bounds ):
   D = len(theta)

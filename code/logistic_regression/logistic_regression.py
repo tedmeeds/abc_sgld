@@ -4,6 +4,7 @@ import scipy as sp
 import pdb
 import gzip, cPickle
 import time
+import json
 from numpy import newaxis
 
 def logsumexp(x,dim=0):
@@ -173,6 +174,7 @@ class MulticlassLogisticRegression(object):
     for k in range(self.K):
       g_k = np.dot( DIF[:,k].T, self.X[ids,:] ).T
       G[:,k] = g_k
+    G = -1e-3*G/2.0
     return self.batchsize*G/self.N
 
   def gradient_ema_targets( self, W):
@@ -244,7 +246,10 @@ class MulticlassLogisticRegression(object):
     count = 0
     last_train = train_error
     GM = np.zeros( self.W.shape )
-    print "INIT LL %0.4f train_error %0.3f  test_error %0.3f"%(LL, train_error, test_error)
+    print "INIT LL %0.4f train_error %0.3f  test_error %0.3f"%(LL, train_error*100, test_error*100)
+    test_errors = []
+    weights = []
+    LLs = []
     for t in xrange( max_steps ):
       G = self.sp_gradient( self.W )
       #Y = softmax( np.dot( self.X[self.ids,:], self.W ) )
@@ -260,6 +265,27 @@ class MulticlassLogisticRegression(object):
       lr *= decay #pow(lr,decay)
       cur_time = time.time()
 
+      if t%100==0:
+        Ytest, logYtest = softmax( np.dot( self.Xtest, self.W ), return_log = True )
+        LL, Y = self.loglikelihood( self.W, return_Y = True )
+        y_test = np.argmax(Ytest,1)
+        test_error = classification_error( self.t_test, y_test )
+
+        test_errors.append(test_error)
+        weights.append(self.W)
+        LLs.append(LL)
+
+        data = {
+          'test_errors': test_errors,
+          'weights': [w.tolist() for w in weights],
+          'LLs': [ll.tolist() for ll in LLs]
+        }
+
+        file = open("LR.json", "w")
+        json.dump(data, file)
+        file.close()
+        print 'saved to file'
+
       if cur_time - last_time > 15:
         Ytest, logYtest = softmax( np.dot( self.Xtest, self.W ), return_log = True )
         LL, Y = self.loglikelihood( self.W, return_Y = True )
@@ -267,8 +293,6 @@ class MulticlassLogisticRegression(object):
         y_test = np.argmax(Ytest,1)
         train_error = classification_error( self.t_train, y )
         test_error = classification_error( self.t_test, y_test )
-
-
         if train_error > last_train:
           count += 1
         else:
@@ -311,7 +335,7 @@ if __name__ == "__main__":
 
   # print "constructing LR model..."
   # #LR_model = MulticlassLogisticRegression( T_valid, X_valid, T_test, X_test )
-  LR_model = MulticlassLogisticRegression( T_train, X_train, T_test, X_test )
+  LR_model = MulticlassLogisticRegression( T_train, X_train, T_test, X_test, init_w_std )
   # LR_model2 = MulticlassLogisticRegression( T_train, X_train, T_test, X_test )
   # LR_model3 = MulticlassLogisticRegression( T_train, X_train, T_test, X_test )
   # LR_model4 = MulticlassLogisticRegression( T_train, X_train, T_test, X_test )

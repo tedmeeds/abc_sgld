@@ -30,6 +30,7 @@ class LogisticRegressionProblem(object):
         R = params['2side_keps']['R']
         percent_change = params['2side_keps']["percent_to_change"]
         prior_penalty = params['2side_keps']['prior_penalty']
+        gamma = params['prior']['gamma']
         gradient = 0.0*theta
         # change_mask = np.zeros(theta.shape)
         # perm = np.random.permutation( len(theta) )[:int(percent_change*len(theta))]
@@ -43,8 +44,9 @@ class LogisticRegressionProblem(object):
             # gradient += (f_plus-f_minus) * delta * change_mask
             gradient += (f_plus-f_minus) / delta
         gradient /= 2*d_theta*R
-        gradient_prior = -prior_penalty*np.sign(theta)
-        gradient += gradient_prior
+        gradient = -gamma*gradient/2.0
+        # gradient_prior = -prior_penalty*np.sign(theta) # TODO: Replace this?
+        # gradient += gradient_prior
         return -gradient
 
     def propose(self, theta, params):

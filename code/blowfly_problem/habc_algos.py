@@ -456,11 +456,12 @@ def run_sghmc( problem, params, theta, x = None ):
     if grad_U_params["record_true_grad"]:
       grad_U_dummy = problem.true_gradient( theta, grad_U_params )
     
-    grads[t,:] = grad_U
+    if t < 1000:
+      grads[t,:] = grad_U
     
-    V = np.var(grads[:t+1],0)# *np.eye(D)
-    B = 0.5*eta*V
-    C = B+deltaC#*np.eye(D)
+      V = np.var(grads[:t+1],0)# *np.eye(D)
+      B = 0.5*eta*V
+      C = B+deltaC#*np.eye(D)
     #pdb.set_trace()
     # full step momentum
     p = p - C*p*eta - grad_U*eta + np.sqrt(2.0*(C-B)*eta)*np.random.randn(D)
@@ -590,9 +591,7 @@ def run_thermostats( problem, params, theta, x = None ):
     #xi = xi + eta*( np.dot(p.T,p)/D - 1.0)
     xi = xi + eta*( p*p - 1.0)
     
-    print "theta:  ", theta
-    print "xi:     ", xi
-    print "rho:    ", p
+    
     # --------------- #
     # samples omegas  #
     # --------------- #
@@ -618,6 +617,9 @@ def run_thermostats( problem, params, theta, x = None ):
     if np.mod(t+1,verbose_rate)==0:
       if keep_x:
         print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0][0])
+        print "theta:  ", theta
+        print "xi:     ", xi
+        print "rho:    ", p
       else:
         print "t = %04d    theta0 = %3.3f"%(t+1,theta[0])
       

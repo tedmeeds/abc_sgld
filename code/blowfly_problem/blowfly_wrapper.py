@@ -59,7 +59,17 @@ class generate_blowfly( object ):
   
   def loglike_x( self, x ):
     S,J = x.shape
-    L = logsumexp( self.kernel.logpdf( x ), 0 ) - np.log(S)
+    #L = logsumexp( self.kernel.logpdf( x ), 0 ) - np.log(S)
+    
+
+    #S,J = x.shape
+    mu = x.mean(0)
+    vr = x.var(0)
+    
+    f  = spstats.multivariate_normal( mu, vr+self.p.epsilon**2 )
+
+    L  = f.logpdf( self.y )
+    
     return L
     
   def loglike_prior( self, theta ):
@@ -74,19 +84,23 @@ class generate_blowfly( object ):
   def simulate( self, theta, seed = None, S = 1 ):
     X = np.zeros( (S,self.J))  
     
+    #if seed is not None:
+    #  # save current state
+    current_state = np.random.get_state()
+      
     for s in range(S):
       if seed is not None:
-        # save current state
-        current_state = np.random.get_state()
         np.random.seed(seed[s])
-    
+        #print "setting seed ",seed[s]
+      #else:
+      #  np.random.set_state( current_state )
     
       raw_outputs = self.p.simulation_function( theta )
       X[s] = self.p.statistics_function( raw_outputs)
       
-      if seed is not None:
-        # put back the current state
-        np.random.set_state( current_state )
+    if seed is not None:
+      # put back the current state
+      np.random.set_state( current_state )
     
     return X
   
@@ -106,25 +120,23 @@ class generate_blowfly( object ):
     seeds   = []
     X_plus  = np.zeros( (S,self.J))
     X_minus = np.zeros( (S,self.J))
-    for s in range(S):
-      theta_minus = theta-d_theta
-      theta_plus  = theta_minus + 2*d_theta
-      
-      if omega is not None:
-        seed = omega[s]
+
+    theta_minus = theta-d_theta
+    theta_plus  = theta_minus + 2*d_theta
        
-      if seed is None:
-        state = np.random.get_state()
+    if omega is None:
+      state = np.random.get_state()
+    
+    X_plus = self.simulate( theta_plus, omega, S )
+    
+    if omega is None:
+      np.random.set_state(state)
       
-      X_plus = self.simulate( theta_plus, omega, S )
+    X_minus = self.simulate( theta_minus, omega, S )
+    
+    #seeds.append(seed)
       
-      if seed is None:
-        np.random.set_state(state)
-        
-      X_minus = self.simulate( theta_minus, omega, S )
-      
-      seeds.append(seed)
-      
+    #pdb.set_trace()
     return X_plus, X_minus, seeds, theta_plus, theta_minus
        
   def two_sided_keps_gradient( self, theta, d_theta, omega, S, params ):

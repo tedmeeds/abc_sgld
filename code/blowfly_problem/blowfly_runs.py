@@ -5,6 +5,8 @@ from scipy import stats as spstats
 from blowfly_wrapper import *
 from habc_algos import *
 
+import cPickle
+
 #def pp_vector( x ):
 def view_all_convs( problem, algo_convs, intervals, stats_2_use = [0,1,2,3,4,5,6,7,8]):
   figsize = (16,6)
@@ -41,10 +43,16 @@ def quick_convergence_single_algo( y, X, intervals ):
     mean /= count
     
     convs.append( pow( y - mean, 2 )/pow(y,2) )
-    
+  
   convs = np.array(convs)
-  C = convs[intervals,:]
-  return C
+  used_convs = []
+  used_times = []
+  T = len(X)
+  for t in intervals:  
+    if t < T:
+      used_convs.append( convs[t,:] )
+      used_times.append(t)
+  return np.array(used_convs),np.array(used_times)
     
 def view_results( problem, thetas, all_stats, burnin = 1 ):
   stats = all_stats.mean(1)
@@ -143,7 +151,7 @@ def view_X_timeseries( problem, X, algoname, howmany = 1000 ):
   
   pp.legend( [algoname], loc=1,fancybox=True,prop={'size':16} )
   
-def view_theta_hist( problem, theta_range, samples, algoname, howmany = 1000 ):
+def view_theta_hist( problem, theta_range, samples, algoname, burnin ):
   figsize = (12,8)
   alpha=0.75
   pp.rc('text', usetex=True)
@@ -153,11 +161,11 @@ def view_theta_hist( problem, theta_range, samples, algoname, howmany = 1000 ):
       
   #theta0=theta_range[0]
   #thetaN=theta_range[-1]
-  theta_names = [r'\text{log} $P$', r'\text{log} ${\delta}$', r'\text{log} ${N_0}$', r'\text{log} ${\sigma_d}$', r'\text{log} ${\sigma_p}$', r'\text{log} $\tau$']
+  theta_names = [r'\text{log} $P$', r'\text{log} ${\delta}$', r'\text{log} ${N_0}$', r'\text{log} ${\sigma_d}$', r'\text{log} ${\sigma_p}$', r'$\tau$']
   #pp.hist( samples, problem.p.nbins_coarse, range=problem.p.range,normed = True, alpha = alpha )
   for i in range(6):
     sp=pp.subplot(3,2,i+1)
-    pp.hist( samples[-howmany:,i], 20, normed=True, alpha=0.5)
+    pp.hist( samples[burnin:,i], 20, normed=True, alpha=0.5)
     #pp.plot( samples[-howmany:,i], 'ko')
     pp.xlabel( theta_names[i], rotation='horizontal')
     # set_tick_fonsize( sp, 16 )
@@ -183,7 +191,7 @@ def view_theta_timeseries( problem, theta_range, samples, algoname, howmany = 10
       
   #theta0=theta_range[0]
   #thetaN=theta_range[-1]
-  theta_names = [r'\text{log} $P$', r'\text{log} ${\delta}$', r'\text{log} ${N_0}$', r'\text{log} ${\sigma_d}$', r'\text{log} ${\sigma_p}$', r'\text{log} $\tau$']
+  theta_names = [r'\text{log} $P$', r'\text{log} ${\delta}$', r'\text{log} ${N_0}$', r'\text{log} ${\sigma_d}$', r'\text{log} ${\sigma_p}$', r'$\tau$']
   #pp.hist( samples, problem.p.nbins_coarse, range=problem.p.range,normed = True, alpha = alpha )
   for i in range(6):
     sp=pp.subplot(3,2,i+1)
@@ -238,12 +246,13 @@ def view_posterior( problem, theta_range, samples, algoname, burnin = 1000 ):
   set_title_fonsize( sp, 32 )
   set_label_fonsize( sp, 24 )
   
+burnin        = 500
 keep_x        = True 
 init_seed     = 4
-T             = 2000 # nbr of samples
-verbose_rate  = 10
+T             = 10000 + burnin # nbr of samples
+verbose_rate  = 50
 C             = 10.01    # injected noise variance parameter
-eta           = 0.1 # step size for Hamiltoniam dynamics
+eta           = 0.05 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients
@@ -266,9 +275,14 @@ omega_params = {"use_omega":use_omega, \
                 "omega_switch":omega_switch,\
                 "omega_sample":omega_sample}  
 
+if use_omega:
+  sticky_str = "omega-rate-0p1"
+else:
+  sticky_str = "omega-rate-100p0"
+  
 if __name__ == "__main__": 
   pp.close('all')
-  saveit = False
+  saveit = True
   chain_id = 1
   params = {}
   params["chain_id"]  = chain_id
@@ -283,7 +297,7 @@ if __name__ == "__main__":
   params["grad_params"]  = {"logs":{"true":[],"true_abc":[],"2side_keps":[],"2side_sl":[]},\
                             "record_2side_sl_grad":False, "record_2side_keps_grad":False,"record_true_abc_grad":False,"record_true_grad":False}
   params["grad_params"]["method"] = "spsa"
-  params["grad_params"]["R"] = 1
+  params["grad_params"]["R"] = 2
   
 
   mu_log_P         = 2.0
@@ -305,7 +319,7 @@ if __name__ == "__main__":
   
   params["keep_x"]       = keep_x
   
-  times = [10,100,1000,5000,10000,20000,30000,40000,50000]
+  times = [10,100,500,1000,2000,5000,10000,20000,30000,40000,50000]
   
   #theta0 = np.array( [0.2])
   #x0     = None
@@ -320,116 +334,84 @@ if __name__ == "__main__":
   #theta_range = np.linspace( 0.01, 0.3, 200 )
   
   #problem = generate_exponential( exp_problem )
+  problem_name = "bf"
   params["grad_func"] = problem.two_sided_sl_gradient
   algonames = ["SL-MCMC","SG-Langevin", "SG-HMC", "SG-Thermostats"]
   algos = [run_mcmc,run_sgld, run_sghmc,run_thermostats]
+  #algonames = ["SG-Langevin"]
+  #algos = [run_sgld]
+  algonames = ["SG-Thermostats"]
+  algos = [run_thermostats]
+  #algonames = ["SL-MCMC"]
+  #algos = [run_mcmc]
+  #algonames = ["SL-HMC"]
+  #algos = [run_sghmc]
   
+  results = {}
   for algoname, algo in zip( algonames, algos):
     errors = []
+    results[algoname] = {"results":[]}
     for chain_id in range(5):
       np.random.seed(init_seed + 1000*chain_id)
       theta0 = problem.p.theta_prior_rand()
-      while theta0[0] < 0.01:
-        theta0 = problem.p.theta_prior_rand()
-      while theta0[0] > 2.0:
-        theta0 = problem.p.theta_prior_rand()
     
       print "running chain %d for algo = %s    theta0 = %f"%(chain_id, algoname, theta0[0])
     
       run_result = algo( problem, params, theta0, x0 )
-  
+      results[algoname]["results"].append(run_result)
+      intervals = times #np.array([100,250,500,1000,1500,nbr_keep])-1
+      algo_convs = {}
+      # c_mcmc = quick_convergence_single_algo( problem.y, mcmc["X"].mean(1)[-nbr_keep:], intervals );algo_convs["MCMC"]=c_mcmc;
+      used_conv, used_times = quick_convergence_single_algo( problem.y, run_result["X"].mean(1)[burnin:], intervals );
+      errors.append( used_conv );
+      
+      #view_posterior( problem, theta_range, run_result["THETA"], algoname, burnin )
+      view_theta_timeseries( problem, theta_range, run_result["THETA"], algoname, howmany = 1000 )
       if saveit:
-        pp.savefig("./images/%s-%s-posterior-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
-        pp.savefig("../../papers/uai-2015/images/%s-%s-posterior-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
-  
-  
-  #params["grad_func"] = problem.two_sided_keps_gradient
+        pp.savefig("./images/%s-%s-theta-timeseries-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
+        pp.savefig("../../papers/uai-2015/images/%s-%s-theta-timeseries-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
+        
+      view_theta_hist( problem, theta_range, run_result["THETA"], algoname, burnin )
+      if saveit:
+        pp.savefig("./images/%s-%s-theta-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
+        pp.savefig("../../papers/uai-2015/images/%s-%s-theta-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
+        
+      view_X_timeseries( problem, run_result["X"], algoname, howmany = 1000 )
+      if saveit:
+        pp.savefig("./images/%s-%s-stats-timeseries-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
+        pp.savefig("../../papers/uai-2015/images/%s-%s-stats-timeseries-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
 
-  # # init randomly for MCMC chain
-  # np.random.seed(init_seed + 1000*chain_id)
-  #
-  # # run algorithm
-  # np.random.seed(init_seed + 1000*chain_id)
-  # sgnht = run_thermostats( problem, params, theta0, x0 )
-  # algoname = "SG-Thermostats"
-  # # view_posterior( problem, theta_range, sgnht["THETA"], algoname, burnin=1000 )
-  # # # if saveit:
-  # # #   pp.savefig("bf-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # # #   pp.savefig("../../papers/uai-2015/images/bf-%s-posterior_hist.pdf"%(algoname), format="pdf",dpi=600,bbox_inches="tight")
-  # view_theta_timeseries( problem, theta_range, sgnht["THETA"], algoname, howmany = 1000 )
-  # view_theta_hist( problem, theta_range, sgnht["THETA"], algoname, howmany = 1000 )
-  # view_X_timeseries( problem, sgnht["X"], algoname, howmany = 1000 )
-  # # # if saveit:
-  # # #   pp.savefig("bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # # #   pp.savefig("../../papers/uai-2015/images/bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # # #
-  # algoname = "SG-HMC"
-  # np.random.seed(init_seed + 1000*chain_id)
-  # sghmc = run_sghmc( problem, params, theta0, x0 )
-  # view_theta_timeseries( problem, theta_range, sghmc["THETA"], algoname, howmany = 1000 )
-  # view_theta_hist( problem, theta_range, sghmc["THETA"], algoname, howmany = 1000 )
-  # view_X_timeseries( problem, sghmc["X"], algoname, howmany = 1000 )
+    errors = np.array(errors)
+    mean_errors = np.squeeze( errors.mean(0) )
+    std_errors = np.squeeze( errors.std(0) )
+
+    results[algoname]["params"] = {"eta":eta,"d_theta":d_theta,"S":S,"C":C,"omega_params": omega_params,"grad_params":params["grad_params"]}
+    results[algoname]["errors"] = errors
+    results[algoname]["mean_errors"] = mean_errors
+    results[algoname]["std_errors"] = std_errors
+    if saveit:
+      cPickle.dump(results, open("./images/%s-%s-results.pkl"%(problem_name, algoname),"w+"))
+      np.save( "./images/%s-%s-tvd-errors-%s.npy"%(problem_name, algoname, sticky_str), errors )
+      np.savetxt( "./images/%s-%s-tvd-mean-%s.txt"%(problem_name, algoname, sticky_str), mean_errors )
+      np.savetxt( "./images/%s-%s-tvd-std-%s.txt"%(problem_name, algoname, sticky_str), std_errors )
+      np.savetxt( "./images/%s-%s-tvd-times-%s.txt"%(problem_name, algoname, sticky_str), used_times )
+    print "==================================="
+    print "algo = %s    theta0 = %f"%(algoname, theta0[0])
+    print "==================================="
+    print "use_omega", use_omega
+    print "eta ", eta
+    print "S   ", S
+    print "C   ", C
+    print "grad func", params["grad_func"]
+    #print "conv ", errors
+    #print "final err", errors[:,-1]
+    print "mean errors:"
+    for j in range(mean_errors.shape[1]):
+      print "%d  %3.8f  %3.8f  %3.8f"%(j,mean_errors[0,j],mean_errors[1,j],mean_errors[-1,j])
+      
+    print "==================================="
   
   #
-  np.random.seed(init_seed + 1000*chain_id)
-  sgld = run_sgld( problem, params, theta0, x0 )
-  algoname = "SG-Langevin"
-  # view_posterior( problem, theta_range, sgld["THETA"], algoname, burnin=1000 )
-  # if saveit:
-  #   pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #   pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #view_theta_timeseries( problem, theta_range, sgld["THETA"], algoname, howmany = 1000 )
-  #view_theta_hist( problem, theta_range, sgld["THETA"], algoname, howmany = 1000 )
-  view_X_timeseries( problem, sgld["X"], algoname, howmany = 1000 )
-  # if saveit:
-  #   pp.savefig("bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #   pp.savefig("../../papers/uai-2015/images/bf-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #
-  #
-  # np.random.seed(init_seed + 1000*chain_id)
-  # mcmc = run_mcmc( problem, params, theta0, x0 )
-  # algoname = "ABC-MCMC"
-  # #view_posterior( problem, theta_range, mcmc["THETA"], algoname, burnin=1000 )
-  # #if saveit:
-  # #  pp.savefig("exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # #  pp.savefig("../../papers/uai-2015/images/exp-%s-posterior_hist.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  # view_theta_timeseries( problem, theta_range, mcmc["THETA"], algoname, howmany = 1000 )
-  # view_theta_hist( problem, theta_range, mcmc["THETA"], algoname, howmany = 1000 )
-  # view_X_timeseries( problem, mcmc["X"], algoname, howmany = 1000 )
-  #
-  # if saveit:
-  #   pp.savefig("exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #   pp.savefig("../../papers/uai-2015/images/exp-%s-theta-timeseries.pdf"%(algoname), format="pdf", dpi=600,bbox_inches="tight")
-  #  #
-  # results = {}
-  # results["mcmc"] = mcmc
-  # results["sgld"] = sgld
-  # results["sgnht"] = sgnht
-  # pp.figure(1)
-  # pp.clf()
-  # pp.plot( mcmc["THETA"][-1000:])
-  # pp.plot( sgld["THETA"][-1000:])
-  # pp.plot( sghmc["THETA"][-1000:])
-  # pp.plot( sgnht["THETA"][-1000:])
-  # pp.legend( ["MCMC","SGLD","SGHMC","SGNHT"])
-  # view results of single chain
-  #problem.view_single_chain( sgnht )
-  nbr_keep=2000
-  intervals = np.array([100,250,500,1000,1500,nbr_keep])-1
-  algo_convs = {}
-  # c_mcmc = quick_convergence_single_algo( problem.y, mcmc["X"].mean(1)[-nbr_keep:], intervals );algo_convs["MCMC"]=c_mcmc;
-  c_sgld = quick_convergence_single_algo( problem.y, sgld["X"].mean(1)[-nbr_keep:], intervals );algo_convs["SGLD"]=c_sgld;
-  # c_sghmc = quick_convergence_single_algo( problem.y, sghmc["X"].mean(1)[-nbr_keep:], intervals );algo_convs["SGHMC"]=c_sghmc;
-  # c_sgnht = quick_convergence_single_algo( problem.y, sgnht["X"].mean(1)[-nbr_keep:], intervals );algo_convs["SGNHT"]=c_sgnht;
   
-  view_all_convs( problem, algo_convs, intervals)
+  #view_all_convs( problem, algo_convs, intervals)
   pp.show()
-  
-  print "==================================="
-  print "use_omega", use_omega
-  print "eta ", eta
-  print "S   ", S
-  print "C   ", C
-  print "grad func", params["grad_func"]
-  print "conv ", c_sgld[-1,:]
-  print "==================================="

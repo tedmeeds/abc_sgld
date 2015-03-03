@@ -251,7 +251,7 @@ keep_x        = True
 init_seed     = 4
 T             = 10000 + burnin # nbr of samples
 verbose_rate  = 50
-C             = 10.01    # injected noise variance parameter
+C             = 0.1    # injected noise variance parameter
 eta           = 0.01 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
@@ -299,7 +299,7 @@ if __name__ == "__main__":
   params["grad_params"]["method"] = "spsa"
   params["grad_params"]["R"] = 2
   if use_omega:
-    problem_name = "bf-sticky2"
+    problem_name = "bf-sticky4"
   else:
     problem_name = "bf-no-sticky2"
 
@@ -367,7 +367,7 @@ if __name__ == "__main__":
           params["eta"] = 0.01
         else:
           params["eta"] = 0.01
-         
+      params["eta"] = 0.025   
       run_result = algo( problem, params, theta0, x0 )
       results[algoname]["results"].append(run_result)
       intervals = times #np.array([100,250,500,1000,1500,nbr_keep])-1

@@ -152,7 +152,7 @@ def view_X_timeseries( problem, X, algoname, howmany = 1000 ):
   pp.legend( [algoname], loc=1,fancybox=True,prop={'size':16} )
   
 def view_theta_hist( problem, theta_range, samples, algoname, burnin ):
-  figsize = (12,8)
+  figsize = (10,12)
   alpha=0.75
   pp.rc('text', usetex=True)
   pp.rc('font', family='times')
@@ -213,9 +213,9 @@ def view_theta_timeseries( problem, theta_range, samples, algoname, howmany = 10
   
     
   #pp.title( r"Simulation with Common Random Numbers", fontsize=22) 
-  # set_tick_fonsize( sp, 16 )
-  # set_title_fonsize( sp, 32 )
-  # set_label_fonsize( sp, 24 )
+  set_tick_fonsize( sp, 16 )
+  set_title_fonsize( sp, 32 )
+  set_label_fonsize( sp, 24 )
 
 def view_posterior( problem, theta_range, samples, algoname, burnin = 1000 ):
   figsize = (6,6)
@@ -246,13 +246,13 @@ def view_posterior( problem, theta_range, samples, algoname, burnin = 1000 ):
   set_title_fonsize( sp, 32 )
   set_label_fonsize( sp, 24 )
   
-burnin        = 500
+burnin        = 1000
 keep_x        = True 
 init_seed     = 4
 T             = 10000 + burnin # nbr of samples
 verbose_rate  = 50
 C             = 10.01    # injected noise variance parameter
-eta           = 0.05 # step size for Hamiltoniam dynamics
+eta           = 0.01 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients
@@ -281,7 +281,7 @@ else:
   sticky_str = "omega-rate-100p0"
   
 if __name__ == "__main__": 
-  pp.close('all')
+  pp.close('False')
   saveit = True
   chain_id = 1
   params = {}
@@ -298,7 +298,10 @@ if __name__ == "__main__":
                             "record_2side_sl_grad":False, "record_2side_keps_grad":False,"record_true_abc_grad":False,"record_true_grad":False}
   params["grad_params"]["method"] = "spsa"
   params["grad_params"]["R"] = 2
-  
+  if use_omega:
+    problem_name = "bf-sticky2"
+  else:
+    problem_name = "bf-no-sticky2"
 
   mu_log_P         = 2.0
   std_log_P        = 2.0
@@ -319,7 +322,7 @@ if __name__ == "__main__":
   
   params["keep_x"]       = keep_x
   
-  times = [10,100,500,1000,2000,5000,10000,20000,30000,40000,50000]
+  times = [5,10,100,500,1000,2000,5000,10000,20000,30000,40000,50000]
   
   #theta0 = np.array( [0.2])
   #x0     = None
@@ -334,10 +337,10 @@ if __name__ == "__main__":
   #theta_range = np.linspace( 0.01, 0.3, 200 )
   
   #problem = generate_exponential( exp_problem )
-  problem_name = "bf"
+  
   params["grad_func"] = problem.two_sided_sl_gradient
-  algonames = ["SL-MCMC","SG-Langevin", "SG-HMC", "SG-Thermostats"]
-  algos = [run_mcmc,run_sgld, run_sghmc,run_thermostats]
+  algonames = ["SL-MCMC","SG-Langevin", "SG-Thermostats"]
+  algos = [run_mcmc,run_sgld,run_thermostats]
   #algonames = ["SG-Langevin"]
   #algos = [run_sgld]
   algonames = ["SG-Thermostats"]
@@ -351,12 +354,20 @@ if __name__ == "__main__":
   for algoname, algo in zip( algonames, algos):
     errors = []
     results[algoname] = {"results":[]}
-    for chain_id in range(5):
+    for chain_id in range(1):
       np.random.seed(init_seed + 1000*chain_id)
       theta0 = problem.p.theta_prior_rand()
     
       print "running chain %d for algo = %s    theta0 = %f"%(chain_id, algoname, theta0[0])
     
+      if algoname == "SG-Langevin":
+        params["eta"] = 0.1
+      elif algoname == "SG-Thermostats":
+        if use_omega:
+          params["eta"] = 0.01
+        else:
+          params["eta"] = 0.01
+         
       run_result = algo( problem, params, theta0, x0 )
       results[algoname]["results"].append(run_result)
       intervals = times #np.array([100,250,500,1000,1500,nbr_keep])-1
@@ -368,18 +379,15 @@ if __name__ == "__main__":
       #view_posterior( problem, theta_range, run_result["THETA"], algoname, burnin )
       view_theta_timeseries( problem, theta_range, run_result["THETA"], algoname, howmany = 1000 )
       if saveit:
-        pp.savefig("./images/%s-%s-theta-timeseries-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
-        pp.savefig("../../papers/uai-2015/images/%s-%s-theta-timeseries-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
+        pp.savefig("../../../abc_sgld_blowfly/%s-%s-theta-timeseries-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
         
       view_theta_hist( problem, theta_range, run_result["THETA"], algoname, burnin )
       if saveit:
-        pp.savefig("./images/%s-%s-theta-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
-        pp.savefig("../../papers/uai-2015/images/%s-%s-theta-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
+        pp.savefig("../../../abc_sgld_blowfly/%s-%s-theta-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
         
       view_X_timeseries( problem, run_result["X"], algoname, howmany = 1000 )
       if saveit:
-        pp.savefig("./images/%s-%s-stats-timeseries-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
-        pp.savefig("../../papers/uai-2015/images/%s-%s-stats-timeseries-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
+        pp.savefig("../../../abc_sgld_blowfly/%s-%s-stats-timeseries-hist-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
 
     errors = np.array(errors)
     mean_errors = np.squeeze( errors.mean(0) )
@@ -390,11 +398,11 @@ if __name__ == "__main__":
     results[algoname]["mean_errors"] = mean_errors
     results[algoname]["std_errors"] = std_errors
     if saveit:
-      cPickle.dump(results, open("./images/%s-%s-results.pkl"%(problem_name, algoname),"w+"))
-      np.save( "./images/%s-%s-tvd-errors-%s.npy"%(problem_name, algoname, sticky_str), errors )
-      np.savetxt( "./images/%s-%s-tvd-mean-%s.txt"%(problem_name, algoname, sticky_str), mean_errors )
-      np.savetxt( "./images/%s-%s-tvd-std-%s.txt"%(problem_name, algoname, sticky_str), std_errors )
-      np.savetxt( "./images/%s-%s-tvd-times-%s.txt"%(problem_name, algoname, sticky_str), used_times )
+      cPickle.dump(results, open("../../../abc_sgld_blowfly/%s-%s-results.pkl"%(problem_name, algoname),"w+"))
+      np.save( "../../../abc_sgld_blowfly/%s-%s-tvd-errors-%s.npy"%(problem_name, algoname, sticky_str), errors )
+      np.savetxt( "../../../abc_sgld_blowfly/%s-%s-tvd-mean-%s.txt"%(problem_name, algoname, sticky_str), mean_errors )
+      np.savetxt( "../../../abc_sgld_blowfly/%s-%s-tvd-std-%s.txt"%(problem_name, algoname, sticky_str), std_errors )
+      np.savetxt( "../../../abc_sgld_blowfly/%s-%s-tvd-times-%s.txt"%(problem_name, algoname, sticky_str), used_times )
     print "==================================="
     print "algo = %s    theta0 = %f"%(algoname, theta0[0])
     print "==================================="

@@ -88,4 +88,8 @@ if __name__ == '__main__':
     filename = 'sampling-thermo-truegradient-eta=0.01-C=20.json'
     # filename = 'sampling-true-posterior-mcmc.json'
     plot_PCA(filename, random_proj)
+    filename = 'sampling-sgld-eta=0.01-C=100.json'
+    plot_PCA(filename, random_proj)
+    filename = 'sampling-thermo-eta=0.01-C=20.json'
+    plot_PCA(filename, random_proj)
     plt.show()

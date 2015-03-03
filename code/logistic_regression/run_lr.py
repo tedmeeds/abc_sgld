@@ -71,7 +71,6 @@ if __name__ == "__main__":
   file.close()
   W = np.array([np.array(w) for w in data["weights"][-1]])
   problem.lr.W = W
-  problem.random_proj = np.random.randn( len(problem.w_MAP),2 )
 
   theta0 = problem.lr.W.flatten()
   # C = [C]*len(theta0)

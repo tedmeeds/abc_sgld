@@ -58,7 +58,7 @@ def get_omega(problem, batch_size):
         'LLs': [ll.tolist() for ll in get_omega.LLs]
       }
       # Copy the file so the data doesn't get messed up when canceling early
-      filename = 'sampling-thermo2.json'
+      filename = 'sampling-thermo-ted.json'
       file = open(filename+'.temp', "w+")
       json.dump(data, file)
       file.close()
@@ -525,6 +525,7 @@ def run_thermostats( problem, params, theta, x = None ):
         print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0][0])
       else:
         print "t = %04d    theta0 = %3.3f"%(t+1,theta[0])
+      print "  xi ", xi
 
   outputs["THETA"] = np.squeeze(np.array( THETAS))
   outputs["OMEGA"] = np.squeeze(np.array(OMEGAS))

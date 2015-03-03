@@ -14,9 +14,10 @@ import json
 keep_x        = False
 init_seed     = 1
 T             = 10000 # nbr of samples
-verbose_rate  = 10
-C             = 5.01    # injected noise variance parameter
-eta           = 1e-2 # step size for Hamiltoniam dynamics
+verbose_rate  = 50
+C             = 1.1    # injected noise variance parameter
+#eta           = 1e-3 # step size for Hamiltoniam dynamics
+eta           = 1e-4 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients
@@ -80,10 +81,11 @@ if __name__ == "__main__":
   W = np.array([np.array(w) for w in data["weights"][-1]])
   problem.lr.W = W
   problem.W_MAP = W.copy()
-  problem.w_MAP = np.hstack( (W[:,0],W[:,1]) )
+  problem.w_MAP = problem.lr.W.flatten()
   problem.random_proj = np.random.randn( len(problem.w_MAP),2 )
 
-  theta0 = problem.lr.W.flatten()
+  theta0 = problem.w_MAP #
+  theta0=problem.w_MAP #problem.lr.W.flatten()
   # C = [C]*len(theta0)
   x0     = None
 
@@ -95,7 +97,17 @@ if __name__ == "__main__":
   # np.random.seed(init_seed + 1000*chain_id)
   print params
   # run algorithm
+  #outs = run_sgld( problem, params, theta0, x0 )
   outs = run_thermostats( problem, params, theta0, x0 )
+  
+  rMAP = np.dot( problem.w_MAP, problem.random_proj )
+  rtheta = np.dot( outs["THETA"], problem.random_proj )
+  
+  pp.figure()
+  pp.plot( rtheta[:,0], rtheta[:,1], 'k-' )
+  pp.plot( rtheta[:,0], rtheta[:,1], 'bo' )
+  pp.plot( [rMAP[0]], [rMAP[1]], 'ro',ms=10 )
+  pp.show()
   # outs = run_sghmc( problem, params, theta0, x0 )
   # outs = run_sgld( problem, params, theta0, x0 )
   # outs = run_mcmc( problem, params, theta0, x0 )

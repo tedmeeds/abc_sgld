@@ -1,7 +1,3 @@
-# TOOD: Adapt this for NN case
-# Construct NN, load data
-# Pass it to nn_wrapper
-
 import numpy as np
 import pylab as pp
 import scipy as sp
@@ -15,12 +11,12 @@ keep_x        = False
 init_seed     = 1
 T             = 10000 # nbr of samples
 verbose_rate  = 10
-C             = 5.01    # injected noise variance parameter
-eta           = 1e-2 # step size for Hamiltoniam dynamics
+C             = 20.01    # injected noise variance parameter
+eta           = 1e-1 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients
-d_theta = 1e-2  # step size for gradient estimate
+d_theta = 1e-3  # step size for gradient estimate
 S       = 5
 grad_params = {}
 
@@ -88,9 +84,9 @@ if __name__ == "__main__":
   # np.random.seed(init_seed + 1000*chain_id)
   print params
   # run algorithm
-  outs = run_thermostats( problem, params, theta0, x0 )
+  # outs = run_thermostats( problem, params, theta0, x0 )
   # outs = run_sghmc( problem, params, theta0, x0 )
-  # outs = run_sgld( problem, params, theta0, x0 )
+  outs = run_sgld( problem, params, theta0, x0 )
   # outs = run_mcmc( problem, params, theta0, x0 )
 
   # view results of single chain

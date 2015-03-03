@@ -58,7 +58,7 @@ def get_omega(problem, batch_size):
         'LLs': [ll.tolist() for ll in get_omega.LLs]
       }
       # Copy the file so the data doesn't get messed up when canceling early
-      filename = 'sampling-thermo2.json'
+      filename = 'sampling-sgld-eta=0.1-C=20.json'
       file = open(filename+'.temp', "w+")
       json.dump(data, file)
       file.close()

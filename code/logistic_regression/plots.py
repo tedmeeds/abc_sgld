@@ -60,22 +60,28 @@ def plot_PCA(filename):
     # XX = np.array([X.ravel(), Y.ravel()]).T
     # Z = -clf.score_samples(XX)[0]
     # Z = Z.reshape(X.shape)
-    plt.figure()
+    # plt.figure()
     # plt.contour(X, Y, Z)
     plt.plot(W_pca[:, 0], W_pca[:, 1], 'k-')
-    plt.plot(W_pca[:, 0], W_pca[:, 1], 'ro', markersize=5)
-    plt.plot(MAP_pca[0][0], MAP_pca[0][1], 'bo', markersize=8)
+    plt.plot(W_pca[:, 0], W_pca[:, 1], 'o', markersize=5)
+    plt.plot(MAP_pca[0][0], MAP_pca[0][1], 'wo', markersize=8)
     # plt.xlim((-324, -326))
     # plt.ylim((-345, -350))
-    plt.show()
+    # plt.show()
 
 
 if __name__ == '__main__':
-    filename = 'sampling-sgld-4.json'
+    plt.figure()
+    # filename = 'sampling-sgld-eta=0.01-C=100.json'
+    filename = 'sampling-sgld-truegradient-eta=0.01-C=100.json'
+    plot_PCA(filename)
     # filename = 'LR2.json'
     # filename = 'sampling-mcmc-q=0.5.json'
+    # plot_PCA(filename)
     # filename = 'sampling-mcmc.json'
     # filename = 'sampling-thermo2.json'
-    # filename = 'sampling-thermo-eta=1e2-C=100.json'
+    # filename = 'sampling-thermo-eta=1e-2-C=20.json'
+    filename = 'sampling-thermo-truegradient-eta=0.01-C=20.json'
     # filename = 'sampling-true-posterior-mcmc.json'
     plot_PCA(filename)
+    plt.show()

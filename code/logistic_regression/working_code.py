@@ -50,7 +50,7 @@ def get_omega(problem, batch_size):
     get_omega.avg_test_errors.append(avg_error)
     # get_omega.weights.append(problem.lr.W)
     get_omega.LLs.append(LL)
-    if get_omega.counter % 100 == 0:
+    if get_omega.counter % 1000 == 0:
       data = {
         'test_errors': get_omega.test_errors,
         'avg_test_errors': get_omega.avg_test_errors,
@@ -58,7 +58,7 @@ def get_omega(problem, batch_size):
         'LLs': [ll.tolist() for ll in get_omega.LLs]
       }
       # Copy the file so the data doesn't get messed up when canceling early
-      filename = 'sampling-sgld-eta=0.1-C=20.json'
+      filename = 'sampling-sgld-truegradient-eta=0.01-C=100.json'
       file = open(filename+'.temp', "w+")
       json.dump(data, file)
       file.close()

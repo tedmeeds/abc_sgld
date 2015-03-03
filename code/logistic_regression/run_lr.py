@@ -11,8 +11,8 @@ keep_x        = False
 init_seed     = 1
 T             = 10000 # nbr of samples
 verbose_rate  = 10
-C             = 20.01    # injected noise variance parameter
-eta           = 1e-1 # step size for Hamiltoniam dynamics
+C             = 100.01    # injected noise variance parameter
+eta           = 1e-2 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients
@@ -71,6 +71,7 @@ if __name__ == "__main__":
   file.close()
   W = np.array([np.array(w) for w in data["weights"][-1]])
   problem.lr.W = W
+  problem.random_proj = np.random.randn( len(problem.w_MAP),2 )
 
   theta0 = problem.lr.W.flatten()
   # C = [C]*len(theta0)

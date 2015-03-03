@@ -14,7 +14,7 @@ class LogisticRegressionProblem(object):
         self.lr.W = theta.reshape(28*28, self.K)
         return softmax( np.dot( self.lr.X[seed, :], theta.reshape(28*28, self.K) ), return_log = False )
 
-    def true_gradient(self, theta, omega):
+    def true_gradient(self, theta, omega, params):
         gamma = params['prior']['gamma']
         self.lr.W = theta.reshape(28*28, self.K)
         Y = softmax( np.dot( self.lr.X[omega,:], theta.reshape(28*28, self.K) ) )
@@ -28,6 +28,7 @@ class LogisticRegressionProblem(object):
         return G
 
     def two_sided_keps_gradient(self, theta, d_theta, omega, S, params):
+        return -self.true_gradient(theta, omega, params)
         R = params['2side_keps']['R']
         percent_change = params['2side_keps']["percent_to_change"]
         prior_penalty = params['2side_keps']['prior_penalty']

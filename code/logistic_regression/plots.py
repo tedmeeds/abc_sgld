@@ -92,11 +92,13 @@ def extract():
 
     return extracted_data
 
-
-
 if __name__ == '__main__':
     data = extract()
-    print data['MAP']
+    plt.figure()
+    plt.plot(data['true_sgld'][:, 0], data['true_sgld'][:, 1], 'k-')
+    plt.plot(data['true_sgld'][:, 0], data['true_sgld'][:, 1], 'o', markersize=5)
+    plt.plot(data['MAP_proj'][0], data['MAP'][1], 'wo', markersize=8)
+    plt.show()
     exit()
 
     file = open('LR2.json', "r")

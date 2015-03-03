@@ -161,7 +161,7 @@ if __name__ == "__main__":
   lines = ["-","--"]
   eps = "0p37"
   for S in Ss:
-    G[S] = np.loadtxt( "grads_at_map_S%d_eps%s_10K.txt"%(S,eps))
+    G[S] = np.loadtxt( "grads_at_map_S%d_eps%s_10K_2.txt"%(S,eps))
     
   view_grads( G, names, lines )
   # pp.figure(1)
@@ -181,5 +181,5 @@ if __name__ == "__main__":
     
   if save_it:
     pp.savefig("exp_varg_figure.pdf", format="pdf", dpi=600,bbox_inches="tight")
-    pp.savefig("../../papers/uai-2015/images/exp_varg_figure.pdf", format="pdf", dpi=600,bbox_inches="tight")
+    #pp.savefig("../../papers/uai-2015/images/exp_varg_figure.pdf", format="pdf", dpi=600,bbox_inches="tight")
   pp.show()

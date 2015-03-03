@@ -108,7 +108,7 @@ upper_bounds = np.array([np.inf])
 # ----------------------- #
 # common ransom seeds     #
 # ----------------------- #
-use_omega    = True    # use fixed random seeds for simulations
+use_omega    = False    # use fixed random seeds for simulations
 omega_rate   = 0.1    # probabilty of changing omegas
 omega_switch = True    # if true, randomly change omegas
 omega_sample = False   # sample omegas instead
@@ -143,7 +143,7 @@ if __name__ == "__main__":
   params["keep_x"]       = keep_x
   params["mh_correction"] = False
   
-  problem_name = "exp2"
+  problem_name = "exp3"
   theta0 = np.array( [0.2])
   x0     = None
   times = [10,100,1000,5000,10000,20000,30000,40000,50000]
@@ -166,6 +166,8 @@ if __name__ == "__main__":
   
   algonames = ["SL-MCMC","SG-Langevin", "SG-HMC", "SG-Thermostats"]
   algos = [run_mcmc,run_sgld, run_sghmc,run_thermostats]
+  algonames = ["SG-Thermostats"]
+  algos = [run_thermostats]
   #
   # algonames = ["SG-Langevin","SG-HMC","SG-Thermostats"]
   # algos     = [run_sgld, run_sghmc,run_thermostats]
@@ -194,6 +196,7 @@ if __name__ == "__main__":
       C=10.0
       if algoname == "SG-HMC":
         C = 100.0
+      params["C"] = C
       # if algoname == "SG-Langevin":
       #   params["eta"] = 0.02
       #   params["omega_params"]["omega_rate"] = 0.5
@@ -215,7 +218,7 @@ if __name__ == "__main__":
       if saveit:
         pp.savefig("../../../abc_sgld_exponential/%s-%s-theta-timeseries-%s-chain%d.pdf"%(problem_name, algoname, sticky_str, chain_id), format="pdf", dpi=600,bbox_inches="tight")
 
-    
+      pp.close('all')
       errs,used_times = total_variational_distance_errors( problem, run_result["THETA"][burnin:], times )
       print "eta ", eta
       print "d_theta", d_theta
@@ -230,6 +233,7 @@ if __name__ == "__main__":
       np.savetxt( "../../../abc_sgld_exponential/%s-%s-tvd-times-%s.txt"%(problem_name, algoname, sticky_str), used_times )
       #np.savetxt( "./images/%s-%s-tvd-%s.txt"%(problem_name, algoname, sticky_str), errors )
       #np.savetxt( "./images/%s-%s-tvd-times-%s.txt"%(problem_name, algoname, sticky_str), used_times )
-
+      
+      
     
   pp.show()

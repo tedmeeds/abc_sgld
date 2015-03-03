@@ -139,15 +139,24 @@ def init_omega( omega_params, S ):
   
 def omega_switch(problem, theta, x, omega, loglike_x, omega_params ):
   any_changes = False
+  omega_proposal = omega.copy()
   for s in range(len(omega)):
     if np.random.rand() < omega_params["omega_rate"]:
-      omega[s]     = np.random.randint(max_int_for_omega)
+      omega_proposal[s]     = np.random.randint(max_int_for_omega)
       any_changes = True
   
   if any_changes:
-    x         = problem.simulate( theta, omega, len(omega) )
-    loglike_x = problem.loglike_x( x )
+    x_proposal         = problem.simulate( theta, omega_proposal, len(omega_proposal) )
+    loglike_x_proposal = problem.loglike_x( x_proposal )
     
+    log_acceptance =  loglike_x_proposal - loglike_x        
+  
+    if accept_move(log_acceptance):
+      x         = x_proposal
+      loglike_x = loglike_x_proposal
+      omega     = omega_proposal
+      #print "changing omegas..."
+      
   return theta, x, omega, loglike_x
     
 def omega_sample(problem, theta, x, omega, loglike_x ):
@@ -345,6 +354,10 @@ def run_sgld( problem, params, theta, x = None ):
     # bounce position off parameter boundaries
     theta, p = bounce_off_boundaries( theta, p, lower_bounds, upper_bounds )
     
+    if keep_x or omega_params["use_omega"]:
+      x = problem.simulate( theta, omega, S )
+      loglike_x = problem.loglike_x( x )
+      
     # --------------- #
     # samples omegas  #
     # --------------- #
@@ -472,6 +485,10 @@ def run_sghmc( problem, params, theta, x = None ):
     # bounce position off parameter boundaries
     theta, p = bounce_off_boundaries( theta, p, lower_bounds, upper_bounds )
     
+    if keep_x or omega_params["use_omega"]:
+      x = problem.simulate( theta, omega, S )
+      loglike_x = problem.loglike_x( x )
+      
     # --------------- #
     # samples omegas  #
     # --------------- #
@@ -484,8 +501,8 @@ def run_sghmc( problem, params, theta, x = None ):
         theta, x, omega, loglike_x = omega_switch(problem, theta, x, omega, loglike_x, omega_params )
 
     if keep_x:
-      x = problem.simulate( theta, omega, S )
-      loglike_x = problem.loglike_x( x )
+      #x = problem.simulate( theta, omega, S )
+      #loglike_x = problem.loglike_x( x )
       LL.append(loglike_x)
       X.append(x)
     
@@ -549,7 +566,7 @@ def run_thermostats( problem, params, theta, x = None ):
   # initialize momentum  
   p = np.random.randn(D)
   # initialize thermostat
-  xi = C*np.random.randn(D)
+  xi = C
   
   
   THETAS = [theta]  
@@ -588,10 +605,13 @@ def run_thermostats( problem, params, theta, x = None ):
     theta, p = bounce_off_boundaries( theta, p, lower_bounds, upper_bounds )
     
     # update thermostat
-    #xi = xi + eta*( np.dot(p.T,p)/D - 1.0)
-    xi = xi + eta*( p*p - 1.0)
+    xi = xi + eta*( np.dot(p.T,p)/D - 1.0)
+    #xi = xi + eta*( np.dot(p.T,p)/len(p) - 1.0)
     
-    
+    if keep_x or omega_params["use_omega"]:
+      x = problem.simulate( theta, omega, S )
+      loglike_x = problem.loglike_x( x )
+      
     # --------------- #
     # samples omegas  #
     # --------------- #
@@ -604,8 +624,8 @@ def run_thermostats( problem, params, theta, x = None ):
         theta, x, omega, loglike_x = omega_switch(problem, theta, x, omega, loglike_x, omega_params )
 
     if keep_x:
-      x = problem.simulate( theta, omega, S )
-      loglike_x = problem.loglike_x( x )
+      #x = problem.simulate( theta, omega, S )
+      #loglike_x = problem.loglike_x( x )
       LL.append(loglike_x)
       X.append(x)
     

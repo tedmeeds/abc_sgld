@@ -16,11 +16,11 @@ init_seed     = 1
 T             = 50000 # nbr of samples
 verbose_rate  = 1000
 C             = 5.01    # injected noise variance parameter
-eta           = 1e-4 # step size for Hamiltoniam dynamics
+eta           = 1e-3 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients
-d_theta = 1e-4  # step size for gradient estimate
+d_theta = 1e-2  # step size for gradient estimate
 S       = 5
 grad_params = {}
 
@@ -69,7 +69,7 @@ if __name__ == "__main__":
   params["propose"] = {'q': 0.5}
   params['prior'] = {'gamma': 1e-3}
 
-  file = open('LR.json', "r")
+  file = open('LR2.json', "r")
   data = json.load(file)
   file.close()
   W = np.array([np.array(w) for w in data["weights"][-1]])

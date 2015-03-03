@@ -57,7 +57,7 @@ def get_omega(problem, batch_size):
       'LLs': [ll.tolist() for ll in get_omega.LLs]
     }
 
-    file = open("sampling-sgld.json", "w")
+    file = open("sampling-sgld3.json", "w")
     json.dump(data, file)
     file.close()
     print 'saved to file'

@@ -29,7 +29,7 @@ def get_omega(problem, batch_size):
     N = problem.N
     perms = np.random.permutation(N)
     mini_batches += [perms[k:k+batch_size] for k in range(0, N, batch_size)]
-  if get_omega.counter % 100 == 0:
+  if get_omega.counter % 10 == 0:
     LL, Y = problem.lr.loglikelihood( problem.lr.W, return_Y = True )
     Ytest, logYtest = softmax( np.dot( problem.lr.Xtest, problem.lr.W ), return_log = True )
     y_test = np.argmax(Ytest,1)
@@ -57,7 +57,7 @@ def get_omega(problem, batch_size):
       'LLs': [ll.tolist() for ll in get_omega.LLs]
     }
 
-    file = open("sampling-sgld2.json", "w")
+    file = open("sampling-true-posterior-mcmc.json", "w")
     json.dump(data, file)
     file.close()
     print 'saved to file'

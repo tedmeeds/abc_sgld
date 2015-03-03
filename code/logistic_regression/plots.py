@@ -31,8 +31,8 @@ def plot_PCA(filename):
     file.close()
     # W = np.array([np.array(w) for w in data["weights"][-1]])
     W = np.array([np.array(w).flatten() for w in data["weights"]])
-    # pca = create_PCA('sampling-true-posterior-mcmc.json')
-    pca = create_PCA(filename)
+    pca = create_PCA('sampling-true-posterior-mcmc2.json')
+    # pca = create_PCA(filename)
     W_pca = pca.transform(W)
     clf = mixture.GMM(n_components=K, covariance_type='full')
     clf.fit(W_pca)
@@ -51,7 +51,7 @@ def plot_PCA(filename):
 
 
 if __name__ == '__main__':
-    filename = 'sampling-sgld.json'
+    filename = 'sampling-sgld2.json'
     # filename = 'LR2.json'
     # filename = 'sampling-MCMC.json'
     # filename = 'sampling-true-posterior-mcmc2.json'

@@ -47,7 +47,7 @@ def get_omega(problem, batch_size):
     #print "avg abs W :", np.mean( np.abs( problem.lr.W))
     get_omega.test_errors.append(error)
     get_omega.avg_test_errors.append(avg_error)
-    get_omega.weights.append(problem.lr.W)
+    # get_omega.weights.append(problem.lr.W)
     get_omega.LLs.append(LL)
 
     data = {
@@ -57,14 +57,14 @@ def get_omega(problem, batch_size):
       'LLs': [ll.tolist() for ll in get_omega.LLs]
     }
 
-    file = open("sampling-sgld3.json", "w")
+    file = open("sampling-sgld2.json", "w")
     json.dump(data, file)
     file.close()
     print 'saved to file'
 
   return mini_batches.pop()
 get_omega.mini_batches = []
-get_omega.counter = 0
+get_omega.counter = 1
 get_omega.average_counter = 0
 get_omega.y_test_avg = 0
 get_omega.Ytest_avg = 0
@@ -184,7 +184,8 @@ def run_mcmc( problem, params, theta, x = None ):
     OMEGAS.append(omega)
 
 
-    if np.mod(t+1,verbose_rate)==0:
+    if np.mod(t+1, verbose_rate) == 0:
+      get_omega.weights.append(theta)
       print "t = %04d    loglik = %3.3f    theta = %3.3f    x = %3.3f"%(t+1,loglike_x,theta[0],x[0][0])
 
   outputs["THETA"] = np.squeeze(np.array( THETAS))
@@ -293,6 +294,7 @@ def run_sgld( problem, params, theta, x = None ):
 
 
     if np.mod(t+1,verbose_rate)==0:
+      get_omega.weights.append(theta)
       if keep_x:
         print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0][0])
       else:
@@ -401,6 +403,7 @@ def run_sghmc( problem, params, theta, x = None ):
 
 
     if np.mod(t+1,verbose_rate)==0:
+      get_omega.weights.append(theta)
       if keep_x:
         print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0])
       else:
@@ -514,6 +517,7 @@ def run_thermostats( problem, params, theta, x = None ):
 
 
     if np.mod(t+1,verbose_rate)==0:
+      get_omega.weights.append(theta)
       if keep_x:
         print "t = %04d    loglik = %3.3f    theta0 = %3.3f    x0 = %3.3f"%(t+1,loglike_x,theta[0],x[0][0])
       else:

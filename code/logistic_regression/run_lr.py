@@ -14,13 +14,13 @@ import json
 keep_x        = False
 init_seed     = 1
 T             = 50000 # nbr of samples
-verbose_rate  = 1000
+verbose_rate  = 100
 C             = 5.01    # injected noise variance parameter
 eta           = 1e-3 # step size for Hamiltoniam dynamics
 #h = 0.0005
 
 # params for gradients
-d_theta = 1e-2  # step size for gradient estimate
+d_theta = 1e-3  # step size for gradient estimate
 S       = 5
 grad_params = {}
 
@@ -58,6 +58,7 @@ if __name__ == "__main__":
   params["d_theta"] = d_theta
   params["eta"]     = eta
   params["C"]       = C
+  # params["batch_size"] = len(X_train)
   params["batch_size"] = 100
   params["verbose_rate"] = verbose_rate
   params["grad_params"]  = {"logs":{"true":[],"true_abc":[],"2side_keps":[],"2side_sl":[]},\

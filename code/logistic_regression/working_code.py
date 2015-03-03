@@ -3,6 +3,7 @@ import scipy as sp
 from scipy import stats as spstats
 import pylab as pp
 import pdb
+import shutil
 from logistic_regression import *
 
 # def get_omega(problem, batch_size):
@@ -49,18 +50,20 @@ def get_omega(problem, batch_size):
     get_omega.avg_test_errors.append(avg_error)
     # get_omega.weights.append(problem.lr.W)
     get_omega.LLs.append(LL)
-
-    data = {
-      'test_errors': get_omega.test_errors,
-      'avg_test_errors': get_omega.avg_test_errors,
-      'weights': [w.tolist() for w in get_omega.weights],
-      'LLs': [ll.tolist() for ll in get_omega.LLs]
-    }
-
-    file = open("sampling-true-posterior-mcmc.json", "w")
-    json.dump(data, file)
-    file.close()
-    print 'saved to file'
+    if get_omega.counter % 100 == 0:
+      data = {
+        'test_errors': get_omega.test_errors,
+        'avg_test_errors': get_omega.avg_test_errors,
+        'weights': [w.tolist() for w in get_omega.weights],
+        'LLs': [ll.tolist() for ll in get_omega.LLs]
+      }
+      # Copy the file so the data doesn't get messed up when canceling early
+      filename = 'sampling-thermo2.json'
+      file = open(filename+'.temp', "w+")
+      json.dump(data, file)
+      file.close()
+      shutil.copy2(filename+'.temp', filename)
+      print 'saved to file'
 
   return mini_batches.pop()
 get_omega.mini_batches = []
@@ -473,7 +476,7 @@ def run_thermostats( problem, params, theta, x = None ):
     # ----------------------------- #
 
     # estimate stochastic gradient
-    grad_U = grad_U_func( theta, d_theta, omega, S, grad_U_params)
+    grad_U = grad_U_func( theta, d_theta, omega, S, dict(grad_U_params.items() + params.items()))
     #grad_U = problem.one_sided_gradient( theta, x, omega, c )
     #true_grad = problem.true_abc_gradient( theta, true_gradients )
     #

@@ -22,36 +22,35 @@ def create_PCA(filename):
     data = json.load(file)
     file.close()
     W = np.array([np.array(w).flatten() for w in data["weights"]])
-    # print W.shape
-    # m = W.mean(0)
-    # W -= m
-    # s = W.std(0)
-    # ok = pp.find(s>0)
-    # W[:, ok] /= s[ok]
     pca = PCA(n_components=K, whiten=True)
     pca = pca.fit(W)
     return pca
 
-def plot_PCA(filename):
+def plot_PCA(filename, random_proj=None):
     file = open('LR2.json', "r")
     LR_data = json.load(file)
     file.close()
     MAP = np.array(LR_data['weights'][-1]).flatten()
-    # MAP -= MAP.mean()
-    # s = MAP.std()
-    # MAP /= s
+
     file = open(filename, "r")
     data = json.load(file)
     file.close()
-    # W = np.array([np.array(w) for w in data["weights"][-1]])
     W = np.array([np.array(w).flatten() for w in data["weights"]])
-    # W -= W.mean(0)
-    # s = W.std(0)
-    # ok = pp.find(s>0)
-    # W[:,ok] /= s[ok]
-    pca = create_PCA('sampling-true-posterior-mcmc.json')
-    W_pca = pca.transform(W)
-    MAP_pca = pca.transform(MAP)
+
+    if random_proj is not None:
+        W_proj = np.dot(W, random_proj)
+        MAP_proj = np.dot(MAP, random_proj)
+        W_proj -= MAP_proj
+        # So I don't have to alter the code below..
+        W_pca = W_proj
+        MAP_pca = W_proj
+    else:
+        pca = create_PCA('sampling-true-posterior-mcmc.json')
+        W_pca = pca.transform(W)
+        MAP_pca = pca.transform(MAP)
+
+
+
     # clf = mixture.GMM(n_components=K, covariance_type='full')
     # clf.fit(W_pca)
     # x = np.linspace(-2, 20)
@@ -71,10 +70,15 @@ def plot_PCA(filename):
 
 
 if __name__ == '__main__':
+    file = open('LR2.json', "r")
+    LR_data = json.load(file)
+    file.close()
+    MAP = np.array(LR_data['weights'][-1]).flatten()
+    random_proj = np.random.randn( len(MAP),2 )
     plt.figure()
     # filename = 'sampling-sgld-eta=0.01-C=100.json'
     filename = 'sampling-sgld-truegradient-eta=0.01-C=100.json'
-    plot_PCA(filename)
+    plot_PCA(filename, random_proj)
     # filename = 'LR2.json'
     # filename = 'sampling-mcmc-q=0.5.json'
     # plot_PCA(filename)
@@ -83,5 +87,5 @@ if __name__ == '__main__':
     # filename = 'sampling-thermo-eta=1e-2-C=20.json'
     filename = 'sampling-thermo-truegradient-eta=0.01-C=20.json'
     # filename = 'sampling-true-posterior-mcmc.json'
-    plot_PCA(filename)
+    plot_PCA(filename, random_proj)
     plt.show()
